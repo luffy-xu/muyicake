@@ -110,12 +110,17 @@ export async function createReservation(input: ReservationCreateInput) {
         updatedAt: now,
       })
       .returning();
-    return toApiReservation(created);
+    const apiReservation = toApiReservation(created);
+    const { syncCustomerPersona } = await import("@/lib/customers");
+    await syncCustomerPersona(apiReservation.whatsapp);
+    return apiReservation;
   }
 
   const reservations = await readLocalReservations();
   reservations.unshift(reservation);
   await writeLocalReservations(reservations);
+  const { syncCustomerPersona } = await import("@/lib/customers");
+  await syncCustomerPersona(reservation.whatsapp);
   return reservation;
 }
 
@@ -166,7 +171,13 @@ export async function updateReservation(id: string, input: ReservationUpdateInpu
       })
       .where(eq(reservationsTable.id, id))
       .returning();
-    return row ? toApiReservation(row) : null;
+    if (!row) {
+      return null;
+    }
+    const apiReservation = toApiReservation(row);
+    const { syncCustomerPersona } = await import("@/lib/customers");
+    await syncCustomerPersona(apiReservation.whatsapp);
+    return apiReservation;
   }
 
   const reservations = await readLocalReservations();
@@ -180,5 +191,7 @@ export async function updateReservation(id: string, input: ReservationUpdateInpu
     ...update,
   };
   await writeLocalReservations(reservations);
+  const { syncCustomerPersona } = await import("@/lib/customers");
+  await syncCustomerPersona(reservations[index].whatsapp);
   return reservations[index];
 }

@@ -1,5 +1,28 @@
 import { boolean, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
+export const customers = pgTable("customers", {
+  whatsappKey: text("whatsapp_key").primaryKey(),
+  whatsappDisplay: text("whatsapp_display").notNull(),
+  name: text("name").notNull(),
+  firstReservationId: text("first_reservation_id"),
+  latestReservationId: text("latest_reservation_id"),
+  reservationCount: integer("reservation_count").default(0).notNull(),
+  completedReservationCount: integer("completed_reservation_count")
+    .default(0)
+    .notNull(),
+  cancelledReservationCount: integer("cancelled_reservation_count")
+    .default(0)
+    .notNull(),
+  totalQuotedBasePrice: integer("total_quoted_base_price").default(0).notNull(),
+  preferredDeliveryArea: text("preferred_delivery_area"),
+  preferredProductCategory: text("preferred_product_category"),
+  lastStatus: text("last_status"),
+  firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const reservations = pgTable("reservations", {
   id: text("id").primaryKey(),
   locale: text("locale").default("zh").notNull(),
@@ -40,4 +63,5 @@ export const reservations = pgTable("reservations", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export type CustomerRow = typeof customers.$inferSelect;
 export type ReservationRow = typeof reservations.$inferSelect;
