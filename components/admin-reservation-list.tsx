@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowDown,
   ArrowUp,
@@ -35,6 +36,8 @@ const sortableHeaders: Array<{ key: SortKey; label: string }> = [
 ];
 
 export function AdminReservationList() {
+  const searchParams = useSearchParams();
+  const typeFilter = searchParams.get("type");
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,8 +59,18 @@ export function AdminReservationList() {
       .finally(() => setLoading(false));
   }, []);
 
+  const filteredReservations = useMemo(() => {
+    if (typeFilter === "qixi") {
+      return reservations.filter((reservation) => reservation.reservationCategory === "qixi");
+    }
+    if (typeFilter === "custom") {
+      return reservations.filter((reservation) => reservation.reservationCategory !== "qixi");
+    }
+    return reservations;
+  }, [reservations, typeFilter]);
+
   const sortedReservations = useMemo(() => {
-    return [...reservations].sort((a, b) => {
+    return [...filteredReservations].sort((a, b) => {
       const modifier = sortDirection === "asc" ? 1 : -1;
       const aValue = sortableValue(a, sortKey);
       const bValue = sortableValue(b, sortKey);
@@ -70,7 +83,7 @@ export function AdminReservationList() {
       }
       return 0;
     });
-  }, [reservations, sortDirection, sortKey]);
+  }, [filteredReservations, sortDirection, sortKey]);
 
   function updateSort(key: SortKey) {
     if (key === sortKey) {
@@ -96,7 +109,7 @@ export function AdminReservationList() {
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
           <div>
             <p className="text-sm font-semibold text-[#6B3F2A]">后台管理</p>
-            <h1 className="mt-1 text-3xl font-semibold">预订列表</h1>
+            <h1 className="mt-1 text-3xl font-semibold">{reservationPageTitle(typeFilter)}</h1>
             <p className="mt-2 text-[#7A6258]">
               管理 WhatsApp 跟进、配送确认与订单状态。
             </p>
@@ -209,7 +222,7 @@ export function AdminReservationList() {
               ))}
             </tbody>
           </table>
-          {!reservations.length && !loading && !error ? (
+          {!sortedReservations.length && !loading && !error ? (
             <p className="p-6 text-[#7A6258]">还没有预订。</p>
           ) : null}
         </div>
@@ -222,6 +235,16 @@ export function AdminReservationList() {
       />
     </div>
   );
+}
+
+function reservationPageTitle(typeFilter: string | null) {
+  if (typeFilter === "qixi") {
+    return "七夕预订";
+  }
+  if (typeFilter === "custom") {
+    return "定制预订";
+  }
+  return "预订列表";
 }
 
 function sortableValue(reservation: Reservation, key: SortKey) {

@@ -14,7 +14,7 @@ const sideGroups = [
     items: [
       { href: "/admin/catalog/collections", label: "系列管理" },
       { href: "/admin/catalog/styles", label: "蛋糕款式" },
-      { href: "/admin/catalog/styles", label: "图片管理" },
+      { href: "/admin/catalog/images", label: "图片管理" },
     ],
   },
   {

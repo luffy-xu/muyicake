@@ -1,15 +1,15 @@
 "use client";
 
-import Link from "next/link";
-import { MessageCircle } from "lucide-react";
+import { WhatsAppIcon } from "@/components/brand-logo";
 import { useEffect, useMemo, useState } from "react";
 import {
   CakeStyleDrawer,
   type SelectedCakeStyle,
 } from "@/components/cake-style-drawer";
 import { ProductCard } from "@/components/product-card";
+import { QixiSlotCounter } from "@/components/qixi-slot-counter";
 import { ReservationForm } from "@/components/reservation-form";
-import { LanguageSwitcher } from "@/components/language-switcher";
+import { SiteHeader } from "@/components/site-header";
 import type { Locale, getDictionary } from "@/lib/i18n";
 import type { Product } from "@/lib/products";
 import { createMerchantWhatsAppUrl } from "@/lib/whatsapp";
@@ -71,65 +71,50 @@ export function ReservationPage({
 
   return (
     <main className="min-h-screen bg-[#FFF7EC] pb-24">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
-        <Link href={locale === "en" ? "/en" : "/"} className="font-semibold text-[#6B3F2A]">
-          MuYi Cakes SG
-        </Link>
-        <div className="flex items-center gap-2">
-          <LanguageSwitcher locale={locale} />
-          <a
-            href={createMerchantWhatsAppUrl(undefined, locale)}
-            className="inline-flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-2 text-sm font-semibold text-white"
-          >
-            <MessageCircle size={16} />
-            {dictionary.header.whatsapp}
-          </a>
-        </div>
-      </header>
+      <SiteHeader locale={locale} dictionary={dictionary} />
 
-      <section className="mx-auto max-w-6xl px-5 py-6 md:py-12">
-        <div className="grid gap-7 md:grid-cols-[1fr_0.85fr] md:items-center">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#D8A95D]">
-              {mode === "qixi" ? dictionary.reservation.qixiEyebrow : dictionary.reservation.customEyebrow}
-            </p>
-            <h1 className="mt-3 text-4xl font-semibold leading-tight md:text-6xl">
-              {mode === "qixi" ? dictionary.reservation.qixiTitle : dictionary.reservation.customTitle}
-            </h1>
-            <p className="mt-5 max-w-2xl text-base leading-7 text-[#7A6258] md:text-lg">
-              {mode === "qixi" ? dictionary.reservation.qixiSubtitle : dictionary.reservation.customSubtitle}
-            </p>
-            <button
-              onClick={() =>
-                document.getElementById("reservation-form")?.scrollIntoView()
-              }
-              className="mt-7 rounded-full bg-[#E97796] px-6 py-3 font-semibold text-white shadow-md shadow-[#E97796]/20"
-            >
-              {dictionary.reservation.reserveNow}
-            </button>
-          </div>
-          <div className="rounded-[2rem] border border-[#FFE8DC] bg-[#FFFCF7] p-5 shadow-xl shadow-[#E97796]/10">
-            <div className="flex aspect-[4/3] items-center justify-center rounded-[1.5rem] bg-[linear-gradient(135deg,#FFE8DC,#F7B6C8,#CFE8FF)] p-8 text-center">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#6B3F2A]">
-                  {mode === "qixi" ? dictionary.reservation.heroPlaceholderQixi : dictionary.reservation.heroPlaceholderCustom}
-                </p>
-                <p className="mt-3 text-2xl font-semibold">
-                  {dictionary.reservation.heroText}
-                </p>
-              </div>
-            </div>
-          </div>
+      {/* Full-bleed hero */}
+      <section
+        className="relative overflow-hidden px-5 py-14 text-center"
+        style={{ background: "linear-gradient(145deg,#F7C4D0 0%,#E97796 42%,#C86080 78%,#9B4060 100%)" }}
+      >
+        <div className="pointer-events-none absolute -right-[55px] -top-[55px] h-[210px] w-[210px] rounded-full" style={{ background: "rgba(255,255,255,0.09)" }} />
+        <div className="pointer-events-none absolute -bottom-[38px] -left-[38px] h-[155px] w-[155px] rounded-full" style={{ background: "rgba(216,169,93,0.18)" }} />
+        <div className="pointer-events-none absolute left-[22px] top-[62px] h-12 w-12 rounded-full" style={{ background: "rgba(255,255,255,0.14)" }} />
+        <div className="pointer-events-none absolute bottom-[75px] right-[30px] h-7 w-7 rounded-full" style={{ background: "rgba(255,255,255,0.2)" }} />
+
+        <div className="relative z-10 mx-auto max-w-2xl">
+          <p className="font-semibold uppercase tracking-[0.16em] text-white/75" style={{ fontSize: "11px", letterSpacing: "2.8px" }}>
+            {mode === "qixi" ? dictionary.reservation.qixiEyebrow : dictionary.reservation.customEyebrow}
+          </p>
+          <h1 className="mt-3 text-3xl font-semibold leading-tight text-white font-chinese-serif md:text-4xl" style={{ letterSpacing: "1px" }}>
+            {mode === "qixi" ? dictionary.reservation.qixiTitle : dictionary.reservation.customTitle}
+          </h1>
+          <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-white/80 md:text-base">
+            {mode === "qixi" ? dictionary.reservation.qixiSubtitle : dictionary.reservation.customSubtitle}
+          </p>
+          <button
+            onClick={() => document.getElementById("reservation-form")?.scrollIntoView()}
+            className="mt-7 rounded-full bg-[#FFFCF7] px-6 py-3 font-semibold text-[#6B3F2A] shadow-lg shadow-black/10"
+          >
+            {dictionary.reservation.reserveNow}
+          </button>
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-5 py-8">
-        <h2 className="text-2xl font-semibold">{dictionary.reservation.chooseCake}</h2>
-        <div className="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+      <section className="mx-auto max-w-6xl px-5 py-10">
+        <SectionHeader eyebrow={dictionary.reservation.chooseCakeEyebrow} title={dictionary.reservation.chooseCake} />
+        {mode === "qixi" && (
+          <div className="mt-5">
+            <QixiSlotCounter dictionary={dictionary} />
+          </div>
+        )}
+        <div className="mt-3 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {products.map((product) => (
             <LocalizedProductCard
               key={product.code}
               product={product}
+              locale={locale}
               dictionary={dictionary}
               selected={selectedProduct.code === product.code}
               onSelect={selectProduct}
@@ -140,19 +125,25 @@ export function ReservationPage({
 
       <section className="bg-[#FFFCF7] px-5 py-10">
         <div className="mx-auto max-w-6xl">
-          <h2 className="text-2xl font-semibold">
-            {mode === "qixi" ? dictionary.reservation.includedTitleQixi : dictionary.reservation.includedTitleCustom}
-          </h2>
-          <p className="mt-3 max-w-3xl leading-7 text-[#7A6258]">
-            {mode === "qixi"
-              ? dictionary.reservation.includedTextQixi
-              : dictionary.reservation.includedTextCustom}
-          </p>
+          <SectionHeader
+            eyebrow={dictionary.reservation.includedEyebrow}
+            title={mode === "qixi" ? dictionary.reservation.includedTitleQixi : dictionary.reservation.includedTitleCustom}
+          />
+          <div
+            className="mt-5 rounded-[20px] p-5"
+            style={{ background: "#FFF7EC", border: "1px solid rgba(247,182,200,0.28)" }}
+          >
+            <p className="leading-[1.85] text-[#7A6258]">
+              {mode === "qixi"
+                ? dictionary.reservation.includedTextQixi
+                : dictionary.reservation.includedTextCustom}
+            </p>
+          </div>
         </div>
       </section>
 
       <section id="reservation-form" className="mx-auto max-w-3xl scroll-mt-6 px-5 py-10">
-        <h2 className="mb-5 text-2xl font-semibold">{dictionary.reservation.detailsTitle}</h2>
+        <SectionHeader eyebrow={dictionary.reservation.formEyebrow} title={dictionary.reservation.detailsTitle} className="mb-6" />
         <ReservationForm
           key={selectedProduct.code}
           locale={locale}
@@ -165,22 +156,33 @@ export function ReservationPage({
       </section>
 
       <section className="mx-auto max-w-6xl px-5 py-8">
-        <h2 className="text-2xl font-semibold">{dictionary.reservation.faqTitle}</h2>
-        <div className="mt-5 grid gap-4 md:grid-cols-3">
+        <SectionHeader eyebrow={dictionary.reservation.faqEyebrow} title={dictionary.reservation.faqTitle} />
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
           {dictionary.reservation.faq.map(([title, text]) => (
             <Faq key={title} title={title} text={text} />
           ))}
         </div>
       </section>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#FFE8DC] bg-[#FFFCF7]/95 p-3 backdrop-blur md:hidden">
-        <button
-          onClick={() => document.getElementById("reservation-form")?.scrollIntoView()}
-          className="w-full rounded-full bg-[#E97796] px-5 py-3 font-semibold text-white"
-        >
-          {dictionary.reservation.stickyCta}
-        </button>
+      {/* Sticky mobile CTA */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#FFE8DC] bg-[#FFFCF7]/95 p-3 backdrop-blur-sm md:hidden">
+        <div className="flex gap-2">
+          <a
+            href={createMerchantWhatsAppUrl(undefined, locale)}
+            aria-label="WhatsApp"
+            className="inline-flex items-center justify-center rounded-full bg-[#25D366] px-4 py-3 text-white shadow-sm"
+          >
+            <WhatsAppIcon size={20} />
+          </a>
+          <button
+            onClick={() => document.getElementById("reservation-form")?.scrollIntoView()}
+            className="flex-1 rounded-full bg-[#E97796] px-5 py-3 font-semibold text-white shadow-md shadow-[#E97796]/20"
+          >
+            {dictionary.reservation.stickyCta}
+          </button>
+        </div>
       </div>
+
       <CakeStyleDrawer
         key={`${drawerOpen}-${catalogTypes.join("-")}-${locale}`}
         open={drawerOpen}
@@ -194,13 +196,24 @@ export function ReservationPage({
   );
 }
 
+function SectionHeader({ eyebrow, title, className = "" }: { eyebrow: string; title: string; className?: string }) {
+  return (
+    <div className={className}>
+      <p className="mb-[6px] text-[10px] font-semibold uppercase tracking-[2.8px] text-[#D8A95D]">{eyebrow}</p>
+      <h2 className="text-[21px] font-semibold text-[#2B1E1A] font-chinese-serif" style={{ letterSpacing: "0.5px" }}>{title}</h2>
+    </div>
+  );
+}
+
 function LocalizedProductCard({
   product,
+  locale,
   dictionary,
   selected,
   onSelect,
 }: {
   product: Product;
+  locale: Locale;
   dictionary: ReturnType<typeof getDictionary>;
   selected: boolean;
   onSelect: (product: Product) => void;
@@ -213,6 +226,7 @@ function LocalizedProductCard({
       name={copy.name}
       description={copy.description}
       badge={"badge" in copy ? copy.badge : undefined}
+      limitedLabel={product.category === "qixi" ? (locale === "en" ? "LIMITED" : "限定") : undefined}
       photoLabel={dictionary.reservation.photoComing}
       selectLabel={dictionary.reservation.selectReserve}
       selected={selected}
@@ -223,9 +237,12 @@ function LocalizedProductCard({
 
 function Faq({ title, text }: { title: string; text: string }) {
   return (
-    <div className="rounded-3xl bg-[#FFFCF7] p-5 shadow-sm">
-      <h3 className="font-semibold">{title}</h3>
-      <p className="mt-2 text-sm leading-6 text-[#7A6258]">{text}</p>
+    <div
+      className="rounded-[16px] p-5"
+      style={{ background: "#FFF7EC", border: "1px solid rgba(247,182,200,0.3)" }}
+    >
+      <h3 className="text-[14px] font-semibold text-[#2B1E1A]">{title}</h3>
+      <p className="mt-2 text-[13px] leading-[1.7] text-[#7A6258]">{text}</p>
     </div>
   );
 }

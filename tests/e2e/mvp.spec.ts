@@ -1,8 +1,36 @@
 import { expect, test } from "@playwright/test";
 import * as nextEnv from "@next/env";
+import postgres from "postgres";
 
 const { loadEnvConfig } = nextEnv;
 loadEnvConfig(process.cwd());
+
+test.afterAll(async () => {
+  if (!process.env.DATABASE_URL) {
+    return;
+  }
+
+  const sql = postgres(process.env.DATABASE_URL, { prepare: false });
+  try {
+    await sql`
+      delete from cake_collections
+      where slug like 'e2e-qixi-%'
+         or slug like 'drawer-qixi-%'
+    `;
+    await sql`
+      delete from reservations
+      where customer_name in ('Qixi Customer', 'Birthday Customer')
+         or customer_name like 'Drawer Customer %'
+    `;
+    await sql`
+      delete from customers
+      where name in ('Qixi Customer', 'Birthday Customer')
+         or name like 'Drawer Customer %'
+    `;
+  } finally {
+    await sql.end();
+  }
+});
 
 test("Qixi reservation flow", async ({ request }) => {
   const page = await request.get("/qixi");
@@ -213,6 +241,20 @@ test("Admin catalog create and public catalog API flow", async ({ request }) => 
   const detailPayload = (await detail.json()) as { style: { name: string; sizeOptions: Array<{ price: number }> } };
   expect(detailPayload.style.name).toBe("E2E 粉色蛋糕");
   expect(detailPayload.style.sizeOptions[0].price).toBe(77);
+
+  const deleteResponse = await request.post("/api/admin/catalog", {
+    headers: { Cookie: adminCookie! },
+    data: {
+      action: "deleteCollection",
+      id: collectionPayload.result.id,
+    },
+  });
+  expect(deleteResponse.status()).toBe(200);
+
+  const deletedCollection = await request.get(
+    `/api/catalog/collections/${collectionPayload.result.slug}?locale=zh`,
+  );
+  expect(deletedCollection.status()).toBe(404);
 });
 
 test("Public Qixi drawer selection saves selected style", async ({ page, request }) => {
@@ -358,4 +400,69 @@ test("Admin catalog navigation is Chinese after login", async ({ page, request }
   await expect(page.getByRole("heading", { name: "系统设置", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "系列管理" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "蛋糕目录 CMS" })).toBeVisible();
+});
+
+test("Admin reservation type filters work", async ({ page, request }) => {
+  const loginResponse = await request.post("/api/admin/login", {
+    form: { password: "test-admin" },
+    maxRedirects: 0,
+  });
+  const adminCookie = loginResponse.headers()["set-cookie"]?.split(";")[0];
+  const [, cookieValue] = adminCookie!.split("=");
+  await page.context().addCookies([
+    {
+      name: "muyi_admin_session",
+      value: cookieValue,
+      url: "http://127.0.0.1:4173",
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
+
+  await page.goto("/admin/reservations?type=qixi");
+  await expect(page.getByRole("heading", { name: "七夕预订" })).toBeVisible();
+  await expect(page.locator("tbody tr").filter({ hasText: "qixi" }).first()).toBeVisible();
+
+  await page.goto("/admin/reservations?type=custom");
+  await expect(page.getByRole("heading", { name: "定制预订" })).toBeVisible();
+  await expect(page.locator("tbody tr").filter({ hasText: "birthday" }).first()).toBeVisible();
+  await expect(page.locator("tbody tr").filter({ hasText: "qixi" })).toHaveCount(0);
+});
+
+test("Admin style edit uses drawer and images page is reachable", async ({ page, request }) => {
+  test.skip(!process.env.DATABASE_URL, "Admin catalog UI requires DATABASE_URL.");
+
+  const loginResponse = await request.post("/api/admin/login", {
+    form: { password: "test-admin" },
+    maxRedirects: 0,
+  });
+  const adminCookie = loginResponse.headers()["set-cookie"]?.split(";")[0];
+  const [, cookieValue] = adminCookie!.split("=");
+  await page.context().addCookies([
+    {
+      name: "muyi_admin_session",
+      value: cookieValue,
+      url: "http://127.0.0.1:4173",
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
+
+  await page.goto("/admin/catalog/styles");
+  await page.getByRole("button", { name: "新建款式" }).click();
+  await expect(page.getByRole("heading", { name: "新建蛋糕款式" })).toBeVisible();
+  await expect(page.getByLabel("主图 URL")).toHaveCount(0);
+  await page.getByRole("button", { name: "关闭", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "新建蛋糕款式" })).toHaveCount(0);
+
+  await page.goto("/admin/catalog/collections");
+  await page.getByRole("button", { name: "新建系列" }).click();
+  await expect(page.getByRole("heading", { name: "新建蛋糕系列" })).toBeVisible();
+  await expect(page.getByLabel("封面图片 URL")).toHaveCount(0);
+  await page.getByRole("button", { name: "关闭", exact: true }).click();
+
+  await page.goto("/admin/catalog/images");
+  await expect(page.getByRole("heading", { name: "图片管理" })).toBeVisible();
+  await expect(page.getByText("上传主图").first()).toBeVisible();
+  await expect(page.getByText("上传图库").first()).toBeVisible();
 });

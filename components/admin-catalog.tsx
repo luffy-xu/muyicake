@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ImagePlus, Plus, Save, Trash2 } from "lucide-react";
+import { ImagePlus, Plus, Save, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import type {
   CakeCollectionRow,
@@ -12,6 +12,7 @@ import type {
 } from "@/db/schema";
 
 type AdminStyleRow = CakeStyleRow & { collection: CakeCollectionRow | null };
+type AdminImageStyleRow = AdminStyleRow & { images: CakeStyleImageRow[] };
 
 async function catalogAction(payload: Record<string, unknown>) {
   const response = await fetch("/api/admin/catalog", {
@@ -39,7 +40,7 @@ export function AdminCatalogDashboard({
       <div className="mt-6 grid gap-4 md:grid-cols-3">
         <Stat label="蛋糕系列" value={collectionCount} href="/admin/catalog/collections" />
         <Stat label="蛋糕款式" value={styleCount} href="/admin/catalog/styles" />
-        <Stat label="图片存储" value="对象存储" href="/admin/catalog/styles" />
+        <Stat label="图片存储" value="对象存储" href="/admin/catalog/images" />
       </div>
     </div>
   );
@@ -54,8 +55,50 @@ function Stat({ label, value, href }: { label: string; value: number | string; h
   );
 }
 
+function AdminDrawer({
+  open,
+  title,
+  children,
+  onClose,
+}: {
+  open: boolean;
+  title: string;
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <div className={`fixed inset-0 z-50 ${open ? "" : "pointer-events-none"}`} aria-hidden={!open}>
+      <button
+        type="button"
+        aria-label="关闭抽屉"
+        onClick={onClose}
+        className={`absolute inset-0 bg-black/35 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}
+      />
+      <aside
+        className={`absolute right-0 top-0 flex h-full w-full max-w-xl flex-col bg-[#FFFCF7] shadow-2xl transition-transform ${
+          open ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        <header className="flex items-center justify-between border-b border-[#FFE8DC] px-5 py-4">
+          <h2 className="text-xl font-semibold">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="关闭"
+            className="inline-flex size-10 items-center justify-center rounded-full bg-[#FFF7EC] text-[#6B3F2A]"
+          >
+            <X size={20} />
+          </button>
+        </header>
+        <div className="flex-1 overflow-y-auto p-5">{children}</div>
+      </aside>
+    </div>
+  );
+}
+
 export function AdminCollectionsPage({ collections }: { collections: CakeCollectionRow[] }) {
-  const [editing, setEditing] = useState<CakeCollectionRow | null>(collections[0] ?? null);
+  const [editing, setEditing] = useState<CakeCollectionRow | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   async function submit(formData: FormData) {
@@ -73,15 +116,35 @@ export function AdminCollectionsPage({ collections }: { collections: CakeCollect
     window.location.reload();
   }
 
+  async function remove(collection: CakeCollectionRow) {
+    if (!window.confirm(`确定删除系列「${collection.titleZh}」吗？相关款式、图片、详情区块和尺寸也会被删除。`)) {
+      return;
+    }
+    await catalogAction({ action: "deleteCollection", id: collection.id });
+    window.location.reload();
+  }
+
+  function openNewCollection() {
+    setMessage(null);
+    setEditing(null);
+    setDrawerOpen(true);
+  }
+
+  function openEditCollection(collection: CakeCollectionRow) {
+    setMessage(null);
+    setEditing(collection);
+    setDrawerOpen(true);
+  }
+
   return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
+    <div>
       <section>
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-[#6B3F2A]">蛋糕目录</p>
             <h1 className="text-3xl font-semibold">系列管理</h1>
           </div>
-          <button onClick={() => setEditing(null)} className="inline-flex items-center gap-2 rounded-full bg-[#6B3F2A] px-4 py-2 text-sm font-semibold text-white">
+          <button onClick={openNewCollection} className="inline-flex items-center gap-2 rounded-full bg-[#6B3F2A] px-4 py-2 text-sm font-semibold text-white">
             <Plus size={16} /> 新建系列
           </button>
         </div>
@@ -99,8 +162,9 @@ export function AdminCollectionsPage({ collections }: { collections: CakeCollect
                   <td className="px-4 py-3">{collection.isActive ? "是" : "否"}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <button onClick={() => setEditing(collection)} className="rounded-full border border-[#E4B9A8] px-3 py-2 font-semibold text-[#6B3F2A]">编辑</button>
+                      <button onClick={() => openEditCollection(collection)} className="rounded-full border border-[#E4B9A8] px-3 py-2 font-semibold text-[#6B3F2A]">编辑</button>
                       <button onClick={() => toggle(collection)} className="rounded-full border border-[#E4B9A8] px-3 py-2 font-semibold text-[#6B3F2A]">{collection.isActive ? "停用" : "启用"}</button>
+                      <button onClick={() => remove(collection)} className="rounded-full border border-red-200 px-3 py-2 font-semibold text-red-700">删除</button>
                     </div>
                   </td>
                 </tr>
@@ -109,7 +173,13 @@ export function AdminCollectionsPage({ collections }: { collections: CakeCollect
           </table>
         </div>
       </section>
-      <CollectionForm key={editing?.id ?? "new"} collection={editing} message={message} action={submit} />
+      <AdminDrawer
+        open={drawerOpen}
+        title={editing ? "编辑蛋糕系列" : "新建蛋糕系列"}
+        onClose={() => setDrawerOpen(false)}
+      >
+        <CollectionForm key={editing?.id ?? "new"} collection={editing} message={message} action={submit} />
+      </AdminDrawer>
     </div>
   );
 }
@@ -139,7 +209,6 @@ function CollectionForm({
           <option value="custom">主题定制</option>
         </select>
       </label>
-      <Input name="coverImageUrl" label="封面图片 URL" defaultValue={collection?.coverImageUrl ?? ""} />
       <Input name="sortOrder" label="排序" type="number" defaultValue={collection?.sortOrder ?? 0} />
       <label className="mt-4 flex items-center gap-2 text-sm font-semibold text-[#6B3F2A]">
         <input name="isActive" type="checkbox" defaultChecked={collection?.isActive ?? true} /> 启用
@@ -159,7 +228,8 @@ export function AdminStylesPage({
   styles: AdminStyleRow[];
   collections: CakeCollectionRow[];
 }) {
-  const [editing, setEditing] = useState<AdminStyleRow | null>(styles[0] ?? null);
+  const [editing, setEditing] = useState<AdminStyleRow | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   async function submit(formData: FormData) {
@@ -172,20 +242,40 @@ export function AdminStylesPage({
     }
   }
 
+  function openNewStyle() {
+    setMessage(null);
+    setEditing(null);
+    setDrawerOpen(true);
+  }
+
+  function openEditStyle(style: AdminStyleRow) {
+    setMessage(null);
+    setEditing(style);
+    setDrawerOpen(true);
+  }
+
   async function toggle(style: CakeStyleRow) {
     await catalogAction({ action: "toggleStyle", id: style.id, isActive: !style.isActive });
     window.location.reload();
   }
 
+  async function remove(style: CakeStyleRow) {
+    if (!window.confirm(`确定删除款式「${style.nameZh}」吗？相关图片、详情区块和尺寸也会被删除。`)) {
+      return;
+    }
+    await catalogAction({ action: "deleteStyle", id: style.id });
+    window.location.reload();
+  }
+
   return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_460px]">
+    <div>
       <section>
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-[#6B3F2A]">蛋糕目录</p>
             <h1 className="text-3xl font-semibold">蛋糕款式</h1>
           </div>
-          <button onClick={() => setEditing(null)} className="inline-flex items-center gap-2 rounded-full bg-[#6B3F2A] px-4 py-2 text-sm font-semibold text-white">
+          <button onClick={openNewStyle} className="inline-flex items-center gap-2 rounded-full bg-[#6B3F2A] px-4 py-2 text-sm font-semibold text-white">
             <Plus size={16} /> 新建款式
           </button>
         </div>
@@ -203,9 +293,10 @@ export function AdminStylesPage({
                   <td className="px-4 py-3">{style.isActive ? "是" : "否"}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <button onClick={() => setEditing(style)} className="rounded-full border border-[#E4B9A8] px-3 py-2 font-semibold text-[#6B3F2A]">编辑</button>
+                      <button onClick={() => openEditStyle(style)} className="rounded-full border border-[#E4B9A8] px-3 py-2 font-semibold text-[#6B3F2A]">编辑</button>
                       <Link href={`/admin/catalog/styles/${style.id}`} className="rounded-full bg-[#6B3F2A] px-3 py-2 font-semibold text-white">详情</Link>
                       <button onClick={() => toggle(style)} className="rounded-full border border-[#E4B9A8] px-3 py-2 font-semibold text-[#6B3F2A]">{style.isActive ? "停用" : "启用"}</button>
+                      <button onClick={() => remove(style)} className="rounded-full border border-red-200 px-3 py-2 font-semibold text-red-700">删除</button>
                     </div>
                   </td>
                 </tr>
@@ -214,7 +305,19 @@ export function AdminStylesPage({
           </table>
         </div>
       </section>
-      <StyleForm key={editing?.id ?? "new"} style={editing} collections={collections} message={message} action={submit} />
+      <AdminDrawer
+        open={drawerOpen}
+        title={editing ? "编辑蛋糕款式" : "新建蛋糕款式"}
+        onClose={() => setDrawerOpen(false)}
+      >
+        <StyleForm
+          key={editing?.id ?? "new"}
+          style={editing}
+          collections={collections}
+          message={message}
+          action={submit}
+        />
+      </AdminDrawer>
     </div>
   );
 }
@@ -241,7 +344,6 @@ function StyleForm({
       <Input name="subtitleEn" label="英文副标题" defaultValue={style?.subtitleEn ?? ""} />
       <Textarea name="descriptionZh" label="中文描述" defaultValue={style?.descriptionZh ?? ""} />
       <Textarea name="descriptionEn" label="英文描述" defaultValue={style?.descriptionEn ?? ""} />
-      <Input name="mainImageUrl" label="主图 URL" defaultValue={style?.mainImageUrl ?? ""} />
       <Input name="badgeZh" label="中文标签" defaultValue={style?.badgeZh ?? ""} />
       <Input name="badgeEn" label="英文标签" defaultValue={style?.badgeEn ?? ""} />
       <Input name="sortOrder" label="排序" type="number" defaultValue={style?.sortOrder ?? 0} />
@@ -271,7 +373,7 @@ export function AdminStyleDetailPage({
 }) {
   const [message, setMessage] = useState<string | null>(null);
 
-  async function upload(file: File, action: (url: string) => Promise<void>) {
+  async function uploadFile(file: File) {
     setMessage(null);
     const formData = new FormData();
     formData.append("file", file);
@@ -279,9 +381,34 @@ export function AdminStyleDetailPage({
     const body = (await response.json()) as { url?: string; error?: string };
     if (!response.ok || !body.url) {
       setMessage(body.error ?? "上传失败");
+      return null;
+    }
+    return body.url;
+  }
+
+  async function uploadMainImage(files: File[]) {
+    const url = await uploadFile(files[0]);
+    if (!url) {
       return;
     }
-    await action(body.url);
+    await setMainImage(url);
+    window.location.reload();
+  }
+
+  async function uploadGallery(files: File[]) {
+    for (const [index, file] of files.entries()) {
+      const url = await uploadFile(file);
+      if (!url) {
+        return;
+      }
+      await catalogAction({
+        action: "createImage",
+        styleId: style.id,
+        imageUrl: url,
+        imageType: "gallery",
+        sortOrder: images.length + index + 1,
+      });
+    }
     window.location.reload();
   }
 
@@ -292,16 +419,6 @@ export function AdminStyleDetailPage({
 
   async function setMainImage(url: string) {
     await catalogAction({ action: "updateStyleMainImage", id: style.id, mainImageUrl: url });
-  }
-
-  async function addGallery(url: string) {
-    await catalogAction({
-      action: "createImage",
-      styleId: style.id,
-      imageUrl: url,
-      imageType: "gallery",
-      sortOrder: images.length + 1,
-    });
   }
 
   return (
@@ -324,7 +441,6 @@ export function AdminStyleDetailPage({
           <Input name="subtitleEn" label="英文副标题" defaultValue={style.subtitleEn ?? ""} />
           <Input name="badgeZh" label="中文标签" defaultValue={style.badgeZh ?? ""} />
           <Input name="badgeEn" label="英文标签" defaultValue={style.badgeEn ?? ""} />
-          <Input name="mainImageUrl" label="主图 URL" defaultValue={style.mainImageUrl ?? ""} />
           <Input name="sortOrder" label="排序" type="number" defaultValue={style.sortOrder} />
         </div>
         <Textarea name="descriptionZh" label="中文描述" defaultValue={style.descriptionZh ?? ""} />
@@ -338,24 +454,153 @@ export function AdminStyleDetailPage({
       </form>
 
       <section className="grid gap-6 lg:grid-cols-2">
-        <UploadPanel title="主图" imageUrl={style.mainImageUrl} onFile={(file) => upload(file, setMainImage)} />
-        <UploadPanel title="图库图片" onFile={(file) => upload(file, addGallery)} />
+        <UploadPanel title="主图" imageUrl={style.mainImageUrl} onFiles={uploadMainImage} />
+        <UploadPanel title="图库图片" multiple onFiles={uploadGallery} />
       </section>
 
-      <EditableImages styleId={style.id} images={images} />
+      <EditableImages images={images} />
       <EditableSections styleId={style.id} sections={sections} />
       <EditableSizes styleId={style.id} sizes={sizes} />
     </div>
   );
 }
 
-function EditableImages({ styleId, images }: { styleId: string; images: CakeStyleImageRow[] }) {
-  async function save(formData: FormData, image?: CakeStyleImageRow) {
+export function AdminImagesPage({ styles }: { styles: AdminImageStyleRow[] }) {
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function uploadFile(file: File) {
+    setMessage(null);
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await fetch("/api/admin/uploads", { method: "POST", body: formData });
+    const body = (await response.json()) as { url?: string; error?: string };
+    if (!response.ok || !body.url) {
+      setMessage(body.error ?? "上传失败");
+      return null;
+    }
+    return body.url;
+  }
+
+  async function uploadMain(styleId: string, files: File[]) {
+    const url = await uploadFile(files[0]);
+    if (!url) {
+      return;
+    }
+    await catalogAction({ action: "updateStyleMainImage", id: styleId, mainImageUrl: url });
+    window.location.reload();
+  }
+
+  async function uploadGallery(styleId: string, currentCount: number, files: File[]) {
+    for (const [index, file] of files.entries()) {
+      const url = await uploadFile(file);
+      if (!url) {
+        return;
+      }
+      await catalogAction({
+        action: "createImage",
+        styleId,
+        imageUrl: url,
+        imageType: "gallery",
+        sortOrder: currentCount + index + 1,
+      });
+    }
+    window.location.reload();
+  }
+
+  async function removeImage(id: string) {
+    await catalogAction({ action: "deleteImage", id });
+    window.location.reload();
+  }
+
+  return (
+    <div className="max-w-7xl">
+      <div>
+        <p className="text-sm font-semibold text-[#6B3F2A]">蛋糕目录</p>
+        <h1 className="text-3xl font-semibold">图片管理</h1>
+        <p className="mt-2 text-[#7A6258]">按蛋糕款式上传主图和图库图片。图片文件存储在对象存储，数据库只保存公开 URL。</p>
+      </div>
+      {message ? <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{message}</p> : null}
+      <div className="mt-6 grid gap-5 xl:grid-cols-2">
+        {styles.map((style) => (
+          <section key={style.id} className="rounded-2xl bg-[#FFFCF7] p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold">{style.nameZh}</h2>
+                <p className="mt-1 text-sm text-[#7A6258]">{style.collection?.titleZh ?? "未选择系列"} · {style.slug}</p>
+              </div>
+              <Link href={`/admin/catalog/styles/${style.id}`} className="rounded-full border border-[#E4B9A8] px-3 py-2 text-sm font-semibold text-[#6B3F2A]">
+                详情
+              </Link>
+            </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-[180px_1fr]">
+              <div>
+                <p className="text-sm font-semibold text-[#6B3F2A]">主图</p>
+                {style.mainImageUrl ? (
+                  <img src={style.mainImageUrl} alt="" className="mt-2 aspect-square w-full rounded-xl object-cover" />
+                ) : (
+                  <div className="mt-2 flex aspect-square items-center justify-center rounded-xl bg-[#FFF7EC] text-sm text-[#7A6258]">暂无主图</div>
+                )}
+                <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-full bg-[#6B3F2A] px-4 py-2 text-sm font-semibold text-white">
+                  <ImagePlus size={16} /> 上传主图
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(event) => {
+                      const files = Array.from(event.target.files ?? []);
+                      if (files.length) void uploadMain(style.id, files);
+                    }}
+                  />
+                </label>
+              </div>
+              <div>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-[#6B3F2A]">图库图片</p>
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-[#E4B9A8] px-4 py-2 text-sm font-semibold text-[#6B3F2A]">
+                    <ImagePlus size={16} /> 上传图库
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      multiple
+                      className="hidden"
+                      onChange={(event) => {
+                        const files = Array.from(event.target.files ?? []);
+                        if (files.length) void uploadGallery(style.id, style.images.length, files);
+                      }}
+                    />
+                  </label>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {style.images.map((image) => (
+                    <div key={image.id} className="overflow-hidden rounded-xl border border-[#FFE8DC] bg-white">
+                      <img src={image.imageUrl} alt="" className="aspect-square w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(image.id)}
+                        className="flex w-full items-center justify-center gap-1 px-2 py-2 text-sm font-semibold text-red-700"
+                      >
+                        <Trash2 size={14} /> 删除
+                      </button>
+                    </div>
+                  ))}
+                  {!style.images.length ? <p className="col-span-full rounded-xl bg-[#FFF7EC] p-4 text-sm text-[#7A6258]">暂无图库图片。</p> : null}
+                </div>
+              </div>
+            </div>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EditableImages({ images }: { images: CakeStyleImageRow[] }) {
+  async function save(formData: FormData, image: CakeStyleImageRow) {
     await catalogAction({
-      action: image ? "updateImage" : "createImage",
-      id: image?.id,
-      styleId,
-      imageUrl: stringValue(formData, "imageUrl"),
+      action: "updateImage",
+      id: image.id,
+      styleId: image.styleId ?? "",
+      imageUrl: image.imageUrl,
       altZh: stringValue(formData, "altZh"),
       altEn: stringValue(formData, "altEn"),
       imageType: stringValue(formData, "imageType") || "gallery",
@@ -371,24 +616,25 @@ function EditableImages({ styleId, images }: { styleId: string; images: CakeStyl
     <section className="rounded-2xl bg-[#FFFCF7] p-5 shadow-sm">
       <h2 className="text-xl font-semibold">图库图片信息</h2>
       <div className="mt-4 space-y-4">
-        {[...images, null].map((image, index) => (
-          <form key={image?.id ?? "new-image"} action={(formData) => save(formData, image ?? undefined)} className="grid gap-3 rounded-xl border border-[#FFE8DC] p-3 md:grid-cols-[1fr_1fr_90px_120px]">
-            <Input name="imageUrl" label="图片 URL" defaultValue={image?.imageUrl ?? ""} required={Boolean(image)} />
-            <Input name="altZh" label="中文替代文字" defaultValue={image?.altZh ?? ""} />
-            <Input name="sortOrder" label="排序" type="number" defaultValue={image?.sortOrder ?? index + 1} />
+        {images.map((image, index) => (
+          <form key={image.id} action={(formData) => save(formData, image)} className="grid gap-3 rounded-xl border border-[#FFE8DC] p-3 md:grid-cols-[120px_1fr_90px_120px]">
+            <img src={image.imageUrl} alt="" className="aspect-square rounded-xl object-cover" />
+            <Input name="altZh" label="中文替代文字" defaultValue={image.altZh ?? ""} />
+            <Input name="sortOrder" label="排序" type="number" defaultValue={image.sortOrder ?? index + 1} />
             <label className="block">
               <span className="mb-2 block text-sm font-semibold text-[#6B3F2A]">图片类型</span>
-              <select name="imageType" defaultValue={image?.imageType ?? "gallery"} className="input">
+              <select name="imageType" defaultValue={image.imageType ?? "gallery"} className="input">
                 <option value="main">主图</option><option value="gallery">图库</option><option value="detail">详情图</option>
               </select>
             </label>
-            <Input name="altEn" label="英文替代文字" defaultValue={image?.altEn ?? ""} />
-            <div className="flex items-end gap-2 md:col-span-3">
+            <Input name="altEn" label="英文替代文字" defaultValue={image.altEn ?? ""} />
+            <div className="flex items-end gap-2 md:col-span-4">
               <button className="inline-flex items-center gap-2 rounded-full bg-[#6B3F2A] px-4 py-3 font-semibold text-white"><Save size={16} /> 保存</button>
-              {image ? <button type="button" onClick={() => remove(image.id)} className="inline-flex items-center gap-2 rounded-full border border-red-200 px-4 py-3 font-semibold text-red-700"><Trash2 size={16} /> 删除</button> : null}
+              <button type="button" onClick={() => remove(image.id)} className="inline-flex items-center gap-2 rounded-full border border-red-200 px-4 py-3 font-semibold text-red-700"><Trash2 size={16} /> 删除</button>
             </div>
           </form>
         ))}
+        {!images.length ? <p className="rounded-xl bg-[#FFF7EC] p-4 text-sm text-[#7A6258]">暂无图库图片，请先通过上方“图库图片”上传。</p> : null}
       </div>
     </section>
   );
@@ -485,16 +731,26 @@ function EditableSizes({ styleId, sizes }: { styleId: string; sizes: CakeSizeOpt
   );
 }
 
-function UploadPanel({ title, imageUrl, onFile }: { title: string; imageUrl?: string | null; onFile: (file: File) => void }) {
+function UploadPanel({
+  title,
+  imageUrl,
+  multiple = false,
+  onFiles,
+}: {
+  title: string;
+  imageUrl?: string | null;
+  multiple?: boolean;
+  onFiles: (files: File[]) => void;
+}) {
   return (
     <section className="rounded-2xl bg-[#FFFCF7] p-5 shadow-sm">
       <h2 className="text-xl font-semibold">{title}</h2>
       {imageUrl ? <img src={imageUrl} alt="" className="mt-4 aspect-[4/3] w-full rounded-xl object-cover" /> : <div className="mt-4 flex aspect-[4/3] items-center justify-center rounded-xl bg-[#FFF7EC] text-[#7A6258]">暂无图片</div>}
       <label className="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-full bg-[#6B3F2A] px-4 py-3 font-semibold text-white">
         <ImagePlus size={16} /> 上传图片
-        <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(event) => {
-          const file = event.target.files?.[0];
-          if (file) onFile(file);
+        <input type="file" accept="image/jpeg,image/png,image/webp" multiple={multiple} className="hidden" onChange={(event) => {
+          const files = Array.from(event.target.files ?? []);
+          if (files.length) onFiles(files);
         }} />
       </label>
     </section>
@@ -543,7 +799,6 @@ function collectionPayload(formData: FormData, action: string, id?: string) {
     descriptionZh: stringValue(formData, "descriptionZh"),
     descriptionEn: stringValue(formData, "descriptionEn"),
     type: stringValue(formData, "type"),
-    coverImageUrl: stringValue(formData, "coverImageUrl"),
     sortOrder: numberValue(formData, "sortOrder"),
     isActive: formData.get("isActive") === "on",
   };
@@ -561,7 +816,6 @@ function stylePayload(formData: FormData, action: string, id?: string) {
     subtitleEn: stringValue(formData, "subtitleEn"),
     descriptionZh: stringValue(formData, "descriptionZh"),
     descriptionEn: stringValue(formData, "descriptionEn"),
-    mainImageUrl: stringValue(formData, "mainImageUrl"),
     badgeZh: stringValue(formData, "badgeZh"),
     badgeEn: stringValue(formData, "badgeEn"),
     sortOrder: numberValue(formData, "sortOrder"),

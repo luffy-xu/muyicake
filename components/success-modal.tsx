@@ -24,18 +24,28 @@ export function SuccessModal({
         className="w-full max-w-lg rounded-[2rem] bg-[#FFFCF7] p-6 shadow-2xl"
       >
         <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#D8A95D]">
-              {dictionary.reservation.success.eyebrow}
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold text-[#2B1E1A]">
-              {dictionary.reservation.success.title}
-            </h2>
+          <div className="flex items-start gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/muyi-logo.png"
+              alt=""
+              aria-hidden="true"
+              className="mt-0.5 h-12 w-auto shrink-0"
+              style={{ mixBlendMode: "multiply" }}
+            />
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#D8A95D]">
+                {dictionary.reservation.success.eyebrow}
+              </p>
+              <h2 className="mt-1 text-2xl font-semibold text-[#2B1E1A]">
+                {dictionary.reservation.success.title}
+              </h2>
+            </div>
           </div>
           <button
             aria-label={dictionary.reservation.success.close}
             onClick={onClose}
-            className="rounded-full bg-[#FFF7EC] p-2 text-[#6B3F2A]"
+            className="rounded-full bg-[#FFF7EC] p-2 text-[#6B3F2A] hover:bg-[#FFE8DC]"
           >
             <X size={20} />
           </button>

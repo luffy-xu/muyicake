@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { BrandLogo } from "@/components/brand-logo";
 
 export default async function AdminLoginPage({
   searchParams,
@@ -14,9 +14,7 @@ export default async function AdminLoginPage({
         method="post"
         className="w-full max-w-md rounded-[2rem] bg-[#FFFCF7] p-6 shadow-lg"
       >
-        <Link href="/" className="text-sm font-semibold text-[#6B3F2A]">
-          MuYi Cakes SG
-        </Link>
+        <BrandLogo href="/" size="sm" />
         <h1 className="mt-5 text-2xl font-semibold">后台登录</h1>
         <p className="mt-2 text-sm leading-6 text-[#7A6258]">
           输入运营密码后管理预订与用户画像。

@@ -6,7 +6,9 @@ import {
   createStyle,
   createStyleImage,
   createStyleSection,
+  deleteCollection,
   deleteSizeOption,
+  deleteStyle,
   deleteStyleImage,
   deleteStyleSection,
   setCollectionActive,
@@ -63,6 +65,11 @@ async function runAction(action: string, id: string | undefined, body: unknown) 
     requireId(id);
     return setCollectionActive(id, Boolean((body as { isActive?: unknown }).isActive));
   }
+  if (action === "deleteCollection") {
+    requireId(id);
+    await deleteCollection(id);
+    return null;
+  }
   if (action === "createStyle") {
     return createStyle(cakeStyleSchema.parse(body));
   }
@@ -73,6 +80,11 @@ async function runAction(action: string, id: string | undefined, body: unknown) 
   if (action === "toggleStyle") {
     requireId(id);
     return setStyleActive(id, Boolean((body as { isActive?: unknown }).isActive));
+  }
+  if (action === "deleteStyle") {
+    requireId(id);
+    await deleteStyle(id);
+    return null;
   }
   if (action === "updateStyleMainImage") {
     requireId(id);

@@ -172,18 +172,24 @@ export async function createCollection(input: CakeCollectionInput) {
 
 export async function updateCollection(id: string, input: CakeCollectionInput) {
   const db = assertCatalogDb();
+  const { coverImageUrl, ...collectionInput } = input;
+  const update = {
+    ...collectionInput,
+    descriptionZh: nullable(input.descriptionZh),
+    descriptionEn: nullable(input.descriptionEn),
+    updatedAt: new Date(),
+  };
   const [row] = await db
     .update(cakeCollections)
-    .set({
-      ...input,
-      descriptionZh: nullable(input.descriptionZh),
-      descriptionEn: nullable(input.descriptionEn),
-      coverImageUrl: nullable(input.coverImageUrl),
-      updatedAt: new Date(),
-    })
+    .set(coverImageUrl === undefined ? update : { ...update, coverImageUrl: nullable(coverImageUrl) })
     .where(eq(cakeCollections.id, id))
     .returning();
   return row ?? null;
+}
+
+export async function deleteCollection(id: string) {
+  const db = assertCatalogDb();
+  await db.delete(cakeCollections).where(eq(cakeCollections.id, id));
 }
 
 export async function createStyle(input: CakeStyleInput) {
@@ -211,23 +217,41 @@ export async function createStyle(input: CakeStyleInput) {
 
 export async function updateStyle(id: string, input: CakeStyleInput) {
   const db = assertCatalogDb();
+  const { mainImageUrl, ...styleInput } = input;
+  const update = {
+    ...styleInput,
+    collectionId: nullable(input.collectionId),
+    subtitleZh: nullable(input.subtitleZh),
+    subtitleEn: nullable(input.subtitleEn),
+    descriptionZh: nullable(input.descriptionZh),
+    descriptionEn: nullable(input.descriptionEn),
+    badgeZh: nullable(input.badgeZh),
+    badgeEn: nullable(input.badgeEn),
+    updatedAt: new Date(),
+  };
   const [row] = await db
     .update(cakeStyles)
-    .set({
-      ...input,
-      collectionId: nullable(input.collectionId),
-      subtitleZh: nullable(input.subtitleZh),
-      subtitleEn: nullable(input.subtitleEn),
-      descriptionZh: nullable(input.descriptionZh),
-      descriptionEn: nullable(input.descriptionEn),
-      mainImageUrl: nullable(input.mainImageUrl),
-      badgeZh: nullable(input.badgeZh),
-      badgeEn: nullable(input.badgeEn),
-      updatedAt: new Date(),
-    })
+    .set(mainImageUrl === undefined ? update : { ...update, mainImageUrl: nullable(mainImageUrl) })
     .where(eq(cakeStyles.id, id))
     .returning();
   return row ?? null;
+}
+
+export async function deleteStyle(id: string) {
+  const db = assertCatalogDb();
+  await db.delete(cakeStyles).where(eq(cakeStyles.id, id));
+}
+
+export async function listAdminImageManagerData() {
+  const db = assertCatalogDb();
+  const [styleRows, imageRows] = await Promise.all([
+    listAdminStyles(),
+    db.select().from(cakeStyleImages).orderBy(asc(cakeStyleImages.sortOrder), asc(cakeStyleImages.createdAt)),
+  ]);
+  return styleRows.map((style) => ({
+    ...style,
+    images: imageRows.filter((image) => image.styleId === style.id),
+  }));
 }
 
 export async function updateStyleMainImage(id: string, mainImageUrl: string) {
