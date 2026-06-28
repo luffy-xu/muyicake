@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MuYi Cakes SG ToC MVP
 
-## Getting Started
+Mobile-first cake reservation MVP for MuYi Cakes SG / 沐伊蛋糕新加坡.
 
-First, run the development server:
+## Routes
+
+- `/` - brand home page with Qixi and custom cake entry points
+- `/qixi` - Qixi campaign reservation page
+- `/custom` - daily birthday/custom cake reservation page
+- `/admin/reservations` - admin reservation list behind password gate
+- `/admin/reservations/[id]` - admin reservation detail and operations
+
+## API
+
+- `POST /api/reservations`
+- `GET /api/reservations`
+- `GET /api/reservations/[id]`
+- `PATCH /api/reservations/[id]`
+
+Admin API reads require the `x-admin-password` header matching `ADMIN_PASSWORD`.
+
+## Environment
+
+Copy `.env.example` to `.env.local` and set:
+
+```bash
+DATABASE_URL="postgres://user:password@localhost:5432/muyicake"
+ADMIN_PASSWORD="change-me-before-launch"
+NEXT_PUBLIC_MERCHANT_WHATSAPP="6591234567"
+RESERVATION_STORE_FILE=".data/reservations.json"
+```
+
+When `DATABASE_URL` is absent, the app uses a local JSON reservation store for development and tests.
+
+## Commands
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run lint
+npm run typecheck
+npm run test
+npm run test:e2e
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Known Limitations
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- No payment, cart, customer login, CMS, or real AI image generation is implemented by design.
+- PostgreSQL schema and Drizzle config are present, but migrations are not generated/applied automatically.
+- Local JSON fallback persistence is for development and CI only; production should set `DATABASE_URL`.
+- `next build` currently emits a non-failing Turbopack trace warning because of the development JSON fallback.
+- Playwright E2E uses HTTP/API flows in this sandbox because local Chromium launch is blocked by macOS permissions.
