@@ -11,7 +11,7 @@ const basePayload = {
   whatsapp: "+65 9123 4567",
   customerName: "Mei Lin",
   deliveryDate: "2026-08-19",
-  deliveryArea: "Tampines",
+  deliveryAddress: "Blk 123 Tampines St 11 #08-88, Singapore 521123",
 };
 
 describe("reservationCreateSchema", () => {
@@ -20,6 +20,7 @@ describe("reservationCreateSchema", () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.locale).toBe("zh");
+      expect(result.data.deliveryArea).toBe("521123");
     }
   });
 
@@ -49,6 +50,22 @@ describe("reservationCreateSchema", () => {
       productCode: "birthday_6_inch",
       productName: 'Signature Birthday Cake 6"',
       basePrice: 117,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects delivery dates before launch availability", () => {
+    const result = reservationCreateSchema.safeParse({
+      ...basePayload,
+      deliveryDate: "2026-08-17",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects addresses without a Singapore postal code", () => {
+    const result = reservationCreateSchema.safeParse({
+      ...basePayload,
+      deliveryAddress: "Tampines Street 11",
     });
     expect(result.success).toBe(false);
   });

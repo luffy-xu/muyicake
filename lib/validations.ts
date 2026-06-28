@@ -27,6 +27,59 @@ export const localeSchema = z.enum(["zh", "en"]);
 
 const optionalText = z.string().trim().max(500).optional().or(z.literal(""));
 const optionalAttributionText = z.string().trim().max(1000).optional().or(z.literal(""));
+const dateStringRegex = /^\d{4}-\d{2}-\d{2}$/;
+
+export const earliestDeliveryDate = "2026-08-18";
+
+export function getSingaporeDateString(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Singapore",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+export function addDaysToDateString(value: string, days: number) {
+  const date = new Date(`${value}T00:00:00+08:00`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+export function getMinimumDeliveryDate(date = new Date()) {
+  const tomorrow = addDaysToDateString(getSingaporeDateString(date), 1);
+  return tomorrow > earliestDeliveryDate ? tomorrow : earliestDeliveryDate;
+}
+
+export function extractSingaporePostalCode(value: string | undefined) {
+  return value?.match(/(?:singapore\s*)?(\d{6})\b/i)?.[1];
+}
+
+function hasSingaporeAddressShape(value: string | undefined) {
+  if (!value) {
+    return false;
+  }
+  const postalCode = extractSingaporePostalCode(value);
+  if (!postalCode) {
+    return false;
+  }
+  return /\d/.test(value.replace(postalCode, ""));
+}
+
+function isValidDateString(value: string) {
+  if (!dateStringRegex.test(value)) {
+    return false;
+  }
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
 
 export const reservationCreateSchema = z
   .object({
@@ -40,8 +93,8 @@ export const reservationCreateSchema = z
     whatsapp: z.string().trim().min(8).max(20).regex(/^[+\d\s-]+$/, "Use a valid WhatsApp number."),
     customerName: z.string().trim().min(2).max(80),
     deliveryDate: z.string().trim().min(1),
-    deliveryArea: z.string().trim().min(2).max(120),
-    deliveryAddress: optionalText,
+    deliveryArea: optionalText,
+    deliveryAddress: z.string().trim().min(8).max(500),
     confirmedDeliverySlot: optionalText,
     cakeMessage: optionalText,
     recipientName: optionalText,
@@ -97,7 +150,33 @@ export const reservationCreateSchema = z
         message: "Product details do not match our current menu.",
       });
     }
-  });
+
+    if (!isValidDateString(data.deliveryDate)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["deliveryDate"],
+        message: "Choose a valid delivery date.",
+      });
+    } else if (data.deliveryDate < getMinimumDeliveryDate()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["deliveryDate"],
+        message: "Choose a later delivery date.",
+      });
+    }
+
+    if (!hasSingaporeAddressShape(data.deliveryAddress)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["deliveryAddress"],
+        message: "Enter a Singapore address with a block/house number and 6-digit postal code.",
+      });
+    }
+  })
+  .transform((data) => ({
+    ...data,
+    deliveryArea: extractSingaporePostalCode(data.deliveryAddress) ?? data.deliveryArea ?? "",
+  }));
 
 export const reservationUpdateSchema = z.object({
   status: statusSchema.optional(),

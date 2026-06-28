@@ -16,7 +16,7 @@ test("Qixi reservation flow", async ({ request }) => {
       whatsapp: "+65 9123 4567",
       customerName: "Qixi Customer",
       deliveryDate: "2026-08-19",
-      deliveryArea: "Tampines",
+      deliveryAddress: "Blk 123 Tampines St 11 #08-88, Singapore 521123",
       utmSource: "xiaohongshu",
       utmCampaign: "qixi_preheat",
       landingPath: "/qixi?utm_source=xiaohongshu&utm_campaign=qixi_preheat",
@@ -25,12 +25,13 @@ test("Qixi reservation flow", async ({ request }) => {
 
   expect(response.status()).toBe(201);
   const payload = (await response.json()) as {
-    reservation: { id: string; productName: string; locale: string; utmSource: string };
+    reservation: { id: string; productName: string; locale: string; utmSource: string; deliveryArea: string };
   };
   expect(payload.reservation.id).toMatch(/^MUYI-\d{8}-\d{4}$/);
   expect(payload.reservation.productName).toBe('Qixi Signature Cake 6"');
   expect(payload.reservation.locale).toBe("zh");
   expect(payload.reservation.utmSource).toBe("xiaohongshu");
+  expect(payload.reservation.deliveryArea).toBe("521123");
 });
 
 test("English custom birthday reservation flow", async ({ request }) => {
@@ -49,7 +50,7 @@ test("English custom birthday reservation flow", async ({ request }) => {
       whatsapp: "+65 9234 5678",
       customerName: "Birthday Customer",
       deliveryDate: "2026-08-20",
-      deliveryArea: "Orchard",
+      deliveryAddress: "391 Orchard Road #10-01, Singapore 238872",
       cakeMessage: "Happy birthday, Mama",
       utmSource: "instagram",
       utmCampaign: "qixi_preheat",

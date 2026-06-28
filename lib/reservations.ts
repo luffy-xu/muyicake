@@ -54,7 +54,7 @@ function cleanOptional(value: string | undefined) {
 function cleanReservation(input: ReservationCreateInput): Omit<Reservation, "id" | "status" | "adminNote" | "createdAt" | "updatedAt"> {
   return {
     ...input,
-    deliveryAddress: cleanOptional(input.deliveryAddress),
+    deliveryAddress: input.deliveryAddress,
     confirmedDeliverySlot: cleanOptional(input.confirmedDeliverySlot),
     cakeMessage: cleanOptional(input.cakeMessage),
     recipientName: cleanOptional(input.recipientName),

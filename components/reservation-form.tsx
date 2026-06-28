@@ -7,12 +7,25 @@ import { Send } from "lucide-react";
 import type { Locale, getDictionary } from "@/lib/i18n";
 import type { Product } from "@/lib/products";
 import {
+  extractSingaporePostalCode,
+  getMinimumDeliveryDate,
   reservationCreateSchema,
   type Reservation,
   type ReservationCreateFormValues,
   type ReservationCreateInput,
 } from "@/lib/validations";
 import { SuccessModal } from "@/components/success-modal";
+
+const phoneCountryCodes = [
+  { value: "65", label: "SG +65" },
+  { value: "60", label: "MY +60" },
+  { value: "62", label: "ID +62" },
+  { value: "66", label: "TH +66" },
+  { value: "84", label: "VN +84" },
+  { value: "63", label: "PH +63" },
+  { value: "86", label: "CN +86" },
+  { value: "custom", label: "Custom" },
+] as const;
 
 export function ReservationForm({
   locale,
@@ -27,6 +40,10 @@ export function ReservationForm({
 }) {
   const [success, setSuccess] = useState<Reservation | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [phoneCountryCode, setPhoneCountryCode] = useState("65");
+  const [customPhoneCountryCode, setCustomPhoneCountryCode] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [minimumDeliveryDate] = useState(() => getMinimumDeliveryDate());
   const {
     register,
     handleSubmit,
@@ -50,7 +67,7 @@ export function ReservationForm({
       currency: "SGD",
       isInterestedInMembership: false,
       website: "",
-      whatsapp: "",
+      whatsapp: "65",
       customerName: "",
       deliveryDate: "",
       deliveryArea: "",
@@ -84,6 +101,14 @@ export function ReservationForm({
     setValue("landingPath", `${window.location.pathname}${window.location.search}`);
   }, [setValue]);
 
+  useEffect(() => {
+    const countryCode =
+      phoneCountryCode === "custom"
+        ? customPhoneCountryCode.replace(/\D/g, "")
+        : phoneCountryCode;
+    setValue("whatsapp", `${countryCode} ${phoneNumber}`.trim(), { shouldValidate: true });
+  }, [customPhoneCountryCode, phoneCountryCode, phoneNumber, setValue]);
+
   async function onSubmit(input: ReservationCreateInput) {
     setServerError(null);
     const response = await fetch("/api/reservations", {
@@ -102,6 +127,9 @@ export function ReservationForm({
 
     setSuccess(payload.reservation);
     reset();
+    setPhoneCountryCode("65");
+    setCustomPhoneCountryCode("");
+    setPhoneNumber("");
   }
 
   return (
@@ -122,6 +150,8 @@ export function ReservationForm({
         <input type="hidden" {...register("utmCampaign")} />
         <input type="hidden" {...register("referrer")} />
         <input type="hidden" {...register("landingPath")} />
+        <input type="hidden" {...register("whatsapp")} />
+        <input type="hidden" {...register("deliveryArea")} />
         <input className="hidden" tabIndex={-1} autoComplete="off" {...register("website")} />
 
         <div className="mb-5 rounded-2xl bg-[#FFF7EC] p-4">
@@ -132,24 +162,54 @@ export function ReservationForm({
 
         <div className="grid gap-4 md:grid-cols-2">
           <Field label={dictionary.reservation.form.whatsapp} error={formatError(errors.whatsapp?.message, dictionary)}>
-            <input
-              {...register("whatsapp")}
-              placeholder="+65 9123 4567"
-              className="input"
-              inputMode="tel"
-            />
+            <div className="flex gap-2">
+              <select
+                value={phoneCountryCode}
+                onChange={(event) => setPhoneCountryCode(event.target.value)}
+                className="input w-32 shrink-0"
+                aria-label={dictionary.reservation.form.whatsappCountryCode}
+              >
+                {phoneCountryCodes.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {phoneCountryCode === "custom" ? (
+                <input
+                  value={customPhoneCountryCode}
+                  onChange={(event) => setCustomPhoneCountryCode(event.target.value.replace(/\D/g, ""))}
+                  placeholder="65"
+                  className="input w-20 shrink-0"
+                  inputMode="numeric"
+                  aria-label={dictionary.reservation.form.whatsappCustomCountryCode}
+                />
+              ) : null}
+              <input
+                value={phoneNumber}
+                onChange={(event) => setPhoneNumber(event.target.value)}
+                placeholder="9123 4567"
+                className="input min-w-0 flex-1"
+                inputMode="tel"
+              />
+            </div>
           </Field>
           <Field label={dictionary.reservation.form.name} error={formatError(errors.customerName?.message, dictionary)}>
             <input {...register("customerName")} placeholder={dictionary.reservation.form.namePlaceholder} className="input" />
           </Field>
           <Field label={dictionary.reservation.form.deliveryDate} error={formatError(errors.deliveryDate?.message, dictionary)}>
-            <input {...register("deliveryDate")} type="date" className="input" />
+            <input {...register("deliveryDate")} type="date" min={minimumDeliveryDate} className="input" />
           </Field>
-          <Field label={dictionary.reservation.form.deliveryArea} error={formatError(errors.deliveryArea?.message, dictionary)}>
-            <input
-              {...register("deliveryArea")}
-              placeholder={dictionary.reservation.form.deliveryAreaPlaceholder}
-              className="input"
+          <Field label={dictionary.reservation.form.deliveryAddress} error={formatError(errors.deliveryAddress?.message, dictionary)}>
+            <textarea
+              {...register("deliveryAddress", {
+                onChange: (event) => {
+                  setValue("deliveryArea", extractSingaporePostalCode(event.target.value) ?? "");
+                },
+              })}
+              rows={3}
+              placeholder={dictionary.reservation.form.deliveryAddressPlaceholder}
+              className="input resize-none"
             />
           </Field>
         </div>
@@ -157,15 +217,6 @@ export function ReservationForm({
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <Field label={dictionary.reservation.form.cakeMessage}>
             <input {...register("cakeMessage")} placeholder={dictionary.reservation.form.cakeMessagePlaceholder} className="input" />
-          </Field>
-          <Field label={dictionary.reservation.form.flavour}>
-            <input {...register("flavourPreference")} placeholder={dictionary.reservation.form.flavourPlaceholder} className="input" />
-          </Field>
-          <Field label={dictionary.reservation.form.color}>
-            <input {...register("preferredColor")} placeholder={dictionary.reservation.form.colorPlaceholder} className="input" />
-          </Field>
-          <Field label={dictionary.reservation.form.budget}>
-            <input {...register("budgetRange")} placeholder="S$100-S$150" className="input" />
           </Field>
         </div>
 
@@ -177,11 +228,6 @@ export function ReservationForm({
             className="input resize-none"
           />
         </Field>
-
-        <label className="mt-4 flex items-center gap-3 text-sm text-[#7A6258]">
-          <input type="checkbox" {...register("isInterestedInMembership")} />
-          {dictionary.reservation.form.membership}
-        </label>
 
         {serverError ? <p className="mt-4 text-sm text-red-600">{serverError}</p> : null}
 
