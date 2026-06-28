@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { BarChart3, BookImage, CalendarCheck, Settings } from "lucide-react";
 
 const topItems = [
@@ -35,6 +38,37 @@ const sideGroups = [
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentQuery = searchParams.toString();
+  const currentHref = currentQuery ? `${pathname}?${currentQuery}` : pathname;
+
+  function isTopActive(href: string, label: string) {
+    if (label === "蛋糕目录") {
+      return pathname.startsWith("/admin/catalog");
+    }
+    if (label === "预订管理" || label === "数据看板") {
+      return pathname.startsWith("/admin/reservations");
+    }
+    if (label === "系统设置") {
+      return pathname.startsWith("/admin/settings") || pathname.startsWith("/admin/users");
+    }
+    return pathname === href;
+  }
+
+  function isSideActive(href: string) {
+    if (href.includes("?")) {
+      return currentHref === href;
+    }
+    if (href === "/admin/reservations") {
+      return pathname === href && !currentQuery;
+    }
+    if (href === "/admin/catalog/styles") {
+      return pathname === href || pathname.startsWith("/admin/catalog/styles/");
+    }
+    return pathname === href;
+  }
+
   return (
     <main className="min-h-screen bg-[#F6F1EA] text-[#2B1E1A]">
       <header className="sticky top-0 z-30 border-b border-[#E8D9CA] bg-[#FFFCF7]">
@@ -45,11 +79,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           <nav className="hidden items-center gap-1 md:flex">
             {topItems.map((item) => {
               const Icon = item.icon;
+              const active = isTopActive(item.href, item.label);
               return (
                 <Link
                   key={`${item.label}-${item.href}`}
                   href={item.href}
-                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-[#6B3F2A] hover:bg-[#FFF1E8]"
+                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                    active ? "bg-[#6B3F2A] text-white shadow-sm" : "text-[#6B3F2A] hover:bg-[#FFF1E8]"
+                  }`}
                 >
                   <Icon size={16} />
                   {item.label}
@@ -65,7 +102,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <div className="grid min-h-[calc(100vh-4rem)] md:grid-cols-[260px_1fr]">
-        <aside className="border-b border-[#E8D9CA] bg-[#FFFCF7] p-4 md:border-b-0 md:border-r">
+        <aside className="border-b border-[#E8D9CA] bg-[#FFFCF7] p-4 md:sticky md:top-16 md:h-[calc(100vh-4rem)] md:self-start md:overflow-y-auto md:border-b-0 md:border-r">
           <div className="grid gap-4 sm:grid-cols-3 md:block md:space-y-6">
             {sideGroups.map((group) => (
               <section key={group.title}>
@@ -73,15 +110,20 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                   {group.title}
                 </h2>
                 <div className="mt-2 space-y-1">
-                  {group.items.map((item) => (
-                    <Link
-                      key={`${group.title}-${item.label}`}
-                      href={item.href}
-                      className="block rounded-xl px-3 py-2 text-sm font-semibold text-[#6B3F2A] hover:bg-[#FFF1E8]"
-                    >
-                      {item.label}
-                    </Link>
-                  ))}
+                  {group.items.map((item) => {
+                    const active = isSideActive(item.href);
+                    return (
+                      <Link
+                        key={`${group.title}-${item.label}`}
+                        href={item.href}
+                        className={`block rounded-xl px-3 py-2 text-sm font-semibold transition-colors ${
+                          active ? "bg-[#FFF1E8] text-[#2B1E1A] shadow-sm ring-1 ring-[#E4B9A8]" : "text-[#6B3F2A] hover:bg-[#FFF1E8]"
+                        }`}
+                      >
+                        {item.label}
+                      </Link>
+                    );
+                  })}
                 </div>
               </section>
             ))}

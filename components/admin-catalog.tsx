@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ImagePlus, Plus, Save, Trash2, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowDown, ArrowUp, ImagePlus, Plus, Save, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import type {
   CakeCollectionRow,
@@ -52,6 +53,182 @@ function Stat({ label, value, href }: { label: string; value: number | string; h
       <span className="text-sm font-semibold text-[#7A6258]">{label}</span>
       <span className="mt-2 block text-3xl font-semibold">{value}</span>
     </Link>
+  );
+}
+
+function slugify(value: string) {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const ascii = normalized
+    .normalize("NFKD")
+    .replace(/[^\w-]+/g, "")
+    .replace(/_/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return ascii || `item-${Date.now()}`;
+}
+
+function generatedSlug(primary: string, fallback: string) {
+  return slugify(primary || fallback);
+}
+
+function generatedUniqueSlug(primary: string, fallback: string) {
+  return `${generatedSlug(primary, fallback)}-${Date.now().toString(36)}`;
+}
+
+function generatedSectionKey(primary: string, fallback: string) {
+  return slugify(primary || fallback || `section-${Date.now()}`);
+}
+
+function LanguageTabs({
+  value,
+  onChange,
+}: {
+  value: "zh" | "en";
+  onChange: (value: "zh" | "en") => void;
+}) {
+  return (
+    <div className="inline-flex rounded-full bg-[#FFF7EC] p-1">
+      {[
+        ["zh", "中文"],
+        ["en", "English"],
+      ].map(([key, label]) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => onChange(key as "zh" | "en")}
+          className={`rounded-full px-4 py-2 text-sm font-semibold ${
+            value === key ? "bg-[#6B3F2A] text-white" : "text-[#6B3F2A] hover:bg-[#FFE8DC]"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function FormFooter({
+  language,
+  onLanguageChange,
+  submitLabel = "保存",
+  message,
+  onMoveUp,
+  onMoveDown,
+  onDelete,
+  deleteTitle = "确定删除吗？",
+}: {
+  language?: "zh" | "en";
+  onLanguageChange?: (value: "zh" | "en") => void;
+  submitLabel?: string;
+  message?: string | null;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  onDelete?: () => void;
+  deleteTitle?: string;
+}) {
+  return (
+    <div className="sticky bottom-0 z-10 mt-6 border-t border-[#FFE8DC] bg-[#FFFCF7]/95 py-4 backdrop-blur">
+      {message ? <p className="mb-3 text-sm text-red-600">{message}</p> : null}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {language && onLanguageChange ? <LanguageTabs value={language} onChange={onLanguageChange} /> : <span />}
+        <div className="flex flex-wrap items-center gap-2">
+          {onMoveUp ? (
+            <IconButton label="上移" onClick={onMoveUp}>
+              <ArrowUp size={17} />
+            </IconButton>
+          ) : null}
+          {onMoveDown ? (
+            <IconButton label="下移" onClick={onMoveDown}>
+              <ArrowDown size={17} />
+            </IconButton>
+          ) : null}
+          {onDelete ? (
+            <PopConfirm title={deleteTitle} onConfirm={onDelete}>
+              <IconButton label="删除" tone="danger">
+                <Trash2 size={17} />
+              </IconButton>
+            </PopConfirm>
+          ) : null}
+          <button className="inline-flex items-center justify-center gap-2 rounded-full bg-[#6B3F2A] px-5 py-3 font-semibold text-white">
+            <Save size={16} /> {submitLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function IconButton({
+  label,
+  children,
+  onClick,
+  tone = "default",
+}: {
+  label: string;
+  children: React.ReactNode;
+  onClick?: () => void;
+  tone?: "default" | "danger";
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className={`inline-flex size-11 items-center justify-center rounded-full border font-semibold transition-colors ${
+        tone === "danger"
+          ? "border-red-200 text-red-700 hover:bg-red-50"
+          : "border-[#E4B9A8] text-[#6B3F2A] hover:bg-[#FFF1E8]"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function PopConfirm({
+  title,
+  onConfirm,
+  children,
+}: {
+  title: string;
+  onConfirm: () => void;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <span className="relative inline-flex">
+      <span onClick={() => setOpen(true)}>{children}</span>
+      {open ? (
+        <span className="absolute right-0 top-full z-40 mt-2 w-64 rounded-xl border border-[#FFE8DC] bg-white p-3 text-left shadow-xl">
+          <span className="block text-sm font-semibold text-[#2B1E1A]">{title}</span>
+          <span className="mt-3 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="rounded-full border border-[#E4B9A8] px-3 py-1.5 text-sm font-semibold text-[#6B3F2A]"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onConfirm();
+              }}
+              className="rounded-full bg-red-600 px-3 py-1.5 text-sm font-semibold text-white"
+            >
+              确认删除
+            </button>
+          </span>
+        </span>
+      ) : null}
+    </span>
   );
 }
 
@@ -117,9 +294,6 @@ export function AdminCollectionsPage({ collections }: { collections: CakeCollect
   }
 
   async function remove(collection: CakeCollectionRow) {
-    if (!window.confirm(`确定删除系列「${collection.titleZh}」吗？相关款式、图片、详情区块和尺寸也会被删除。`)) {
-      return;
-    }
     await catalogAction({ action: "deleteCollection", id: collection.id });
     window.location.reload();
   }
@@ -151,12 +325,11 @@ export function AdminCollectionsPage({ collections }: { collections: CakeCollect
         <div className="mt-5 overflow-x-auto rounded-2xl bg-[#FFFCF7] shadow-sm">
           <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="bg-[#FFE8DC] text-[#6B3F2A]">
-              <tr><th className="px-4 py-3">Slug</th><th className="px-4 py-3">标题</th><th className="px-4 py-3">类型</th><th className="px-4 py-3">启用</th><th className="px-4 py-3">操作</th></tr>
+              <tr><th className="px-4 py-3">标题</th><th className="px-4 py-3">类型</th><th className="px-4 py-3">启用</th><th className="px-4 py-3">操作</th></tr>
             </thead>
             <tbody>
               {collections.map((collection) => (
                 <tr key={collection.id} className="border-t border-[#FFE8DC]">
-                  <td className="px-4 py-3 font-semibold">{collection.slug}</td>
                   <td className="px-4 py-3">{collection.titleZh} / {collection.titleEn}</td>
                   <td className="px-4 py-3">{catalogTypeLabel(collection.type)}</td>
                   <td className="px-4 py-3">{collection.isActive ? "是" : "否"}</td>
@@ -164,7 +337,14 @@ export function AdminCollectionsPage({ collections }: { collections: CakeCollect
                     <div className="flex gap-2">
                       <button onClick={() => openEditCollection(collection)} className="rounded-full border border-[#E4B9A8] px-3 py-2 font-semibold text-[#6B3F2A]">编辑</button>
                       <button onClick={() => toggle(collection)} className="rounded-full border border-[#E4B9A8] px-3 py-2 font-semibold text-[#6B3F2A]">{collection.isActive ? "停用" : "启用"}</button>
-                      <button onClick={() => remove(collection)} className="rounded-full border border-red-200 px-3 py-2 font-semibold text-red-700">删除</button>
+                      <PopConfirm
+                        title={`确定删除系列「${collection.titleZh}」吗？相关款式、图片、详情区块和尺寸也会被删除。`}
+                        onConfirm={() => void remove(collection)}
+                      >
+                        <IconButton label="删除" tone="danger">
+                          <Trash2 size={16} />
+                        </IconButton>
+                      </PopConfirm>
                     </div>
                   </td>
                 </tr>
@@ -178,7 +358,13 @@ export function AdminCollectionsPage({ collections }: { collections: CakeCollect
         title={editing ? "编辑蛋糕系列" : "新建蛋糕系列"}
         onClose={() => setDrawerOpen(false)}
       >
-        <CollectionForm key={editing?.id ?? "new"} collection={editing} message={message} action={submit} />
+        <CollectionForm
+          key={editing?.id ?? "new"}
+          collection={editing}
+          message={message}
+          action={submit}
+          onDelete={editing ? () => void remove(editing) : undefined}
+        />
       </AdminDrawer>
     </div>
   );
@@ -188,19 +374,27 @@ function CollectionForm({
   collection,
   message,
   action,
+  onDelete,
 }: {
   collection: CakeCollectionRow | null;
   message: string | null;
   action: (formData: FormData) => void;
+  onDelete?: () => void;
 }) {
+  const [language, setLanguage] = useState<"zh" | "en">("zh");
+
   return (
     <form action={action} className="rounded-2xl bg-[#FFFCF7] p-5 shadow-sm">
       <h2 className="text-xl font-semibold">{collection ? "编辑系列" : "新建系列"}</h2>
-      <Input name="slug" label="Slug 标识" defaultValue={collection?.slug} required />
-      <Input name="titleZh" label="中文标题" defaultValue={collection?.titleZh} required />
-      <Input name="titleEn" label="英文标题" defaultValue={collection?.titleEn} required />
-      <Textarea name="descriptionZh" label="中文描述" defaultValue={collection?.descriptionZh ?? ""} />
-      <Textarea name="descriptionEn" label="英文描述" defaultValue={collection?.descriptionEn ?? ""} />
+      {collection?.slug ? <input type="hidden" name="slug" defaultValue={collection.slug} /> : null}
+      <div className={language === "zh" ? "" : "hidden"}>
+        <Input name="titleZh" label="标题" defaultValue={collection?.titleZh} required={language === "zh"} />
+        <Textarea name="descriptionZh" label="描述" defaultValue={collection?.descriptionZh ?? ""} />
+      </div>
+      <div className={language === "en" ? "" : "hidden"}>
+        <Input name="titleEn" label="标题" defaultValue={collection?.titleEn} required={language === "en"} />
+        <Textarea name="descriptionEn" label="描述" defaultValue={collection?.descriptionEn ?? ""} />
+      </div>
       <label className="mt-4 block">
         <span className="mb-2 block text-sm font-semibold text-[#6B3F2A]">类型</span>
         <select name="type" defaultValue={collection?.type ?? "qixi"} className="input">
@@ -209,14 +403,17 @@ function CollectionForm({
           <option value="custom">主题定制</option>
         </select>
       </label>
-      <Input name="sortOrder" label="排序" type="number" defaultValue={collection?.sortOrder ?? 0} />
       <label className="mt-4 flex items-center gap-2 text-sm font-semibold text-[#6B3F2A]">
         <input name="isActive" type="checkbox" defaultChecked={collection?.isActive ?? true} /> 启用
       </label>
-      <button className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#6B3F2A] px-4 py-3 font-semibold text-white">
-        <Save size={16} /> 保存
-      </button>
-      {message ? <p className="mt-3 text-sm text-red-600">{message}</p> : null}
+      <input type="hidden" name="sortOrder" defaultValue={collection?.sortOrder ?? 0} />
+      <FormFooter
+        language={language}
+        onLanguageChange={setLanguage}
+        message={message}
+        onDelete={onDelete}
+        deleteTitle={`确定删除系列「${collection?.titleZh ?? ""}」吗？相关款式、图片、详情区块和尺寸也会被删除。`}
+      />
     </form>
   );
 }
@@ -228,6 +425,7 @@ export function AdminStylesPage({
   styles: AdminStyleRow[];
   collections: CakeCollectionRow[];
 }) {
+  const router = useRouter();
   const [editing, setEditing] = useState<AdminStyleRow | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -260,9 +458,6 @@ export function AdminStylesPage({
   }
 
   async function remove(style: CakeStyleRow) {
-    if (!window.confirm(`确定删除款式「${style.nameZh}」吗？相关图片、详情区块和尺寸也会被删除。`)) {
-      return;
-    }
     await catalogAction({ action: "deleteStyle", id: style.id });
     window.location.reload();
   }
@@ -282,21 +477,43 @@ export function AdminStylesPage({
         <div className="mt-5 overflow-x-auto rounded-2xl bg-[#FFFCF7] shadow-sm">
           <table className="w-full min-w-[900px] text-left text-sm">
             <thead className="bg-[#FFE8DC] text-[#6B3F2A]">
-              <tr><th className="px-4 py-3">款式</th><th className="px-4 py-3">所属系列</th><th className="px-4 py-3">主图</th><th className="px-4 py-3">启用</th><th className="px-4 py-3">操作</th></tr>
+              <tr><th className="px-4 py-3">主图</th><th className="px-4 py-3">款式</th><th className="px-4 py-3">所属系列</th><th className="px-4 py-3">启用</th><th className="px-4 py-3">操作</th></tr>
             </thead>
             <tbody>
               {styles.map((style) => (
-                <tr key={style.id} className="border-t border-[#FFE8DC]">
+                <tr
+                  key={style.id}
+                  tabIndex={0}
+                  onClick={() => router.push(`/admin/catalog/styles/${style.id}`)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      router.push(`/admin/catalog/styles/${style.id}`);
+                    }
+                  }}
+                  className="cursor-pointer border-t border-[#FFE8DC] hover:bg-[#FFF7EC]"
+                >
+                  <td className="px-4 py-3">
+                    {style.mainImageUrl ? (
+                      <img src={style.mainImageUrl} alt="" className="size-16 rounded-xl object-cover" />
+                    ) : (
+                      <div className="flex size-16 items-center justify-center rounded-xl bg-[#FFF7EC] text-xs text-[#7A6258]">无图</div>
+                    )}
+                  </td>
                   <td className="px-4 py-3"><span className="font-semibold">{style.nameZh}</span><span className="block text-[#7A6258]">{style.slug}</span></td>
                   <td className="px-4 py-3">{style.collection?.titleZh ?? "-"}</td>
-                  <td className="px-4 py-3">{style.mainImageUrl ? "有" : "无"}</td>
                   <td className="px-4 py-3">{style.isActive ? "是" : "否"}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
                     <div className="flex gap-2">
                       <button onClick={() => openEditStyle(style)} className="rounded-full border border-[#E4B9A8] px-3 py-2 font-semibold text-[#6B3F2A]">编辑</button>
-                      <Link href={`/admin/catalog/styles/${style.id}`} className="rounded-full bg-[#6B3F2A] px-3 py-2 font-semibold text-white">详情</Link>
                       <button onClick={() => toggle(style)} className="rounded-full border border-[#E4B9A8] px-3 py-2 font-semibold text-[#6B3F2A]">{style.isActive ? "停用" : "启用"}</button>
-                      <button onClick={() => remove(style)} className="rounded-full border border-red-200 px-3 py-2 font-semibold text-red-700">删除</button>
+                      <PopConfirm
+                        title={`确定删除款式「${style.nameZh}」吗？相关图片、详情区块和尺寸也会被删除。`}
+                        onConfirm={() => void remove(style)}
+                      >
+                        <IconButton label="删除" tone="danger">
+                          <Trash2 size={16} />
+                        </IconButton>
+                      </PopConfirm>
                     </div>
                   </td>
                 </tr>
@@ -316,6 +533,7 @@ export function AdminStylesPage({
           collections={collections}
           message={message}
           action={submit}
+          onDelete={editing ? () => void remove(editing) : undefined}
         />
       </AdminDrawer>
     </div>
@@ -327,33 +545,44 @@ function StyleForm({
   collections,
   message,
   action,
+  onDelete,
 }: {
   style: CakeStyleRow | null;
   collections: CakeCollectionRow[];
   message: string | null;
   action: (formData: FormData) => void;
+  onDelete?: () => void;
 }) {
+  const [language, setLanguage] = useState<"zh" | "en">("zh");
+
   return (
     <form action={action} className="rounded-2xl bg-[#FFFCF7] p-5 shadow-sm">
       <h2 className="text-xl font-semibold">{style ? "编辑款式" : "新建款式"}</h2>
       <CollectionSelect collections={collections} defaultValue={style?.collectionId ?? ""} />
-      <Input name="slug" label="Slug 标识" defaultValue={style?.slug} required />
-      <Input name="nameZh" label="中文名称" defaultValue={style?.nameZh} required />
-      <Input name="nameEn" label="英文名称" defaultValue={style?.nameEn} required />
-      <Input name="subtitleZh" label="中文副标题" defaultValue={style?.subtitleZh ?? ""} />
-      <Input name="subtitleEn" label="英文副标题" defaultValue={style?.subtitleEn ?? ""} />
-      <Textarea name="descriptionZh" label="中文描述" defaultValue={style?.descriptionZh ?? ""} />
-      <Textarea name="descriptionEn" label="英文描述" defaultValue={style?.descriptionEn ?? ""} />
-      <Input name="badgeZh" label="中文标签" defaultValue={style?.badgeZh ?? ""} />
-      <Input name="badgeEn" label="英文标签" defaultValue={style?.badgeEn ?? ""} />
-      <Input name="sortOrder" label="排序" type="number" defaultValue={style?.sortOrder ?? 0} />
+      {style?.slug ? <input type="hidden" name="slug" defaultValue={style.slug} /> : null}
+      <div className={language === "zh" ? "" : "hidden"}>
+        <Input name="nameZh" label="名称" defaultValue={style?.nameZh} required={language === "zh"} />
+        <Input name="subtitleZh" label="副标题" defaultValue={style?.subtitleZh ?? ""} />
+        <Textarea name="descriptionZh" label="描述" defaultValue={style?.descriptionZh ?? ""} />
+        <Input name="badgeZh" label="标签" defaultValue={style?.badgeZh ?? ""} />
+      </div>
+      <div className={language === "en" ? "" : "hidden"}>
+        <Input name="nameEn" label="名称" defaultValue={style?.nameEn} required={language === "en"} />
+        <Input name="subtitleEn" label="副标题" defaultValue={style?.subtitleEn ?? ""} />
+        <Textarea name="descriptionEn" label="描述" defaultValue={style?.descriptionEn ?? ""} />
+        <Input name="badgeEn" label="标签" defaultValue={style?.badgeEn ?? ""} />
+      </div>
       <label className="mt-4 flex items-center gap-2 text-sm font-semibold text-[#6B3F2A]">
         <input name="isActive" type="checkbox" defaultChecked={style?.isActive ?? true} /> 启用
       </label>
-      <button className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#6B3F2A] px-4 py-3 font-semibold text-white">
-        <Save size={16} /> 保存
-      </button>
-      {message ? <p className="mt-3 text-sm text-red-600">{message}</p> : null}
+      <input type="hidden" name="sortOrder" defaultValue={style?.sortOrder ?? 0} />
+      <FormFooter
+        language={language}
+        onLanguageChange={setLanguage}
+        message={message}
+        onDelete={onDelete}
+        deleteTitle={`确定删除款式「${style?.nameZh ?? ""}」吗？相关图片、详情区块和尺寸也会被删除。`}
+      />
     </form>
   );
 }
@@ -372,6 +601,7 @@ export function AdminStyleDetailPage({
   sizes: CakeSizeOptionRow[];
 }) {
   const [message, setMessage] = useState<string | null>(null);
+  const [basicLanguage, setBasicLanguage] = useState<"zh" | "en">("zh");
 
   async function uploadFile(file: File) {
     setMessage(null);
@@ -421,6 +651,11 @@ export function AdminStyleDetailPage({
     await catalogAction({ action: "updateStyleMainImage", id: style.id, mainImageUrl: url });
   }
 
+  async function deleteStyleDetail() {
+    await catalogAction({ action: "deleteStyle", id: style.id });
+    window.location.href = "/admin/catalog/styles";
+  }
+
   return (
     <div className="max-w-6xl space-y-6">
       <Link href="/admin/catalog/styles" className="text-sm font-semibold text-[#6B3F2A]">返回款式列表</Link>
@@ -432,25 +667,33 @@ export function AdminStyleDetailPage({
 
       <form action={saveBasic} className="rounded-2xl bg-[#FFFCF7] p-5 shadow-sm">
         <h2 className="text-xl font-semibold">基础信息</h2>
+        <input type="hidden" name="slug" defaultValue={style.slug} />
         <div className="grid gap-4 md:grid-cols-2">
           <CollectionSelect collections={collections} defaultValue={style.collectionId ?? ""} />
-          <Input name="slug" label="Slug 标识" defaultValue={style.slug} required />
-          <Input name="nameZh" label="中文名称" defaultValue={style.nameZh} required />
-          <Input name="nameEn" label="英文名称" defaultValue={style.nameEn} required />
-          <Input name="subtitleZh" label="中文副标题" defaultValue={style.subtitleZh ?? ""} />
-          <Input name="subtitleEn" label="英文副标题" defaultValue={style.subtitleEn ?? ""} />
-          <Input name="badgeZh" label="中文标签" defaultValue={style.badgeZh ?? ""} />
-          <Input name="badgeEn" label="英文标签" defaultValue={style.badgeEn ?? ""} />
-          <Input name="sortOrder" label="排序" type="number" defaultValue={style.sortOrder} />
         </div>
-        <Textarea name="descriptionZh" label="中文描述" defaultValue={style.descriptionZh ?? ""} />
-        <Textarea name="descriptionEn" label="英文描述" defaultValue={style.descriptionEn ?? ""} />
+        <div className={basicLanguage === "zh" ? "" : "hidden"}>
+          <Input name="nameZh" label="名称" defaultValue={style.nameZh} required={basicLanguage === "zh"} />
+          <Input name="subtitleZh" label="副标题" defaultValue={style.subtitleZh ?? ""} />
+          <Input name="badgeZh" label="标签" defaultValue={style.badgeZh ?? ""} />
+          <Textarea name="descriptionZh" label="描述" defaultValue={style.descriptionZh ?? ""} />
+        </div>
+        <div className={basicLanguage === "en" ? "" : "hidden"}>
+          <Input name="nameEn" label="名称" defaultValue={style.nameEn} required={basicLanguage === "en"} />
+          <Input name="subtitleEn" label="副标题" defaultValue={style.subtitleEn ?? ""} />
+          <Input name="badgeEn" label="标签" defaultValue={style.badgeEn ?? ""} />
+          <Textarea name="descriptionEn" label="描述" defaultValue={style.descriptionEn ?? ""} />
+        </div>
         <label className="mt-4 flex items-center gap-2 text-sm font-semibold text-[#6B3F2A]">
           <input name="isActive" type="checkbox" defaultChecked={style.isActive} /> 启用
         </label>
-        <button className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#6B3F2A] px-5 py-3 font-semibold text-white">
-          <Save size={16} /> 保存基础信息
-        </button>
+        <input type="hidden" name="sortOrder" defaultValue={style.sortOrder} />
+        <FormFooter
+          language={basicLanguage}
+          onLanguageChange={setBasicLanguage}
+          submitLabel="保存基础信息"
+          onDelete={() => void deleteStyleDetail()}
+          deleteTitle={`确定删除款式「${style.nameZh}」吗？相关图片、详情区块和尺寸也会被删除。`}
+        />
       </form>
 
       <section className="grid gap-6 lg:grid-cols-2">
@@ -574,13 +817,13 @@ export function AdminImagesPage({ styles }: { styles: AdminImageStyleRow[] }) {
                   {style.images.map((image) => (
                     <div key={image.id} className="overflow-hidden rounded-xl border border-[#FFE8DC] bg-white">
                       <img src={image.imageUrl} alt="" className="aspect-square w-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(image.id)}
-                        className="flex w-full items-center justify-center gap-1 px-2 py-2 text-sm font-semibold text-red-700"
-                      >
-                        <Trash2 size={14} /> 删除
-                      </button>
+                      <div className="flex justify-center px-2 py-2">
+                        <PopConfirm title="确定删除这张图库图片吗？" onConfirm={() => void removeImage(image.id)}>
+                          <IconButton label="删除" tone="danger">
+                            <Trash2 size={15} />
+                          </IconButton>
+                        </PopConfirm>
+                      </div>
                     </div>
                   ))}
                   {!style.images.length ? <p className="col-span-full rounded-xl bg-[#FFF7EC] p-4 text-sm text-[#7A6258]">暂无图库图片。</p> : null}
@@ -596,13 +839,15 @@ export function AdminImagesPage({ styles }: { styles: AdminImageStyleRow[] }) {
 
 function EditableImages({ images }: { images: CakeStyleImageRow[] }) {
   async function save(formData: FormData, image: CakeStyleImageRow) {
+    const altZh = stringValue(formData, "altZh");
+    const altEn = stringValue(formData, "altEn");
     await catalogAction({
       action: "updateImage",
       id: image.id,
       styleId: image.styleId ?? "",
       imageUrl: image.imageUrl,
-      altZh: stringValue(formData, "altZh"),
-      altEn: stringValue(formData, "altEn"),
+      altZh,
+      altEn,
       imageType: stringValue(formData, "imageType") || "gallery",
       sortOrder: numberValue(formData, "sortOrder"),
     });
@@ -612,27 +857,33 @@ function EditableImages({ images }: { images: CakeStyleImageRow[] }) {
     await catalogAction({ action: "deleteImage", id });
     window.location.reload();
   }
+  async function move(image: CakeStyleImageRow, sortOrder: number, direction: -1 | 1) {
+    await catalogAction({
+      action: "updateImage",
+      id: image.id,
+      styleId: image.styleId ?? "",
+      imageUrl: image.imageUrl,
+      altZh: image.altZh ?? "",
+      altEn: image.altEn ?? "",
+      imageType: image.imageType ?? "gallery",
+      sortOrder: sortOrder + direction,
+    });
+    window.location.reload();
+  }
   return (
     <section className="rounded-2xl bg-[#FFFCF7] p-5 shadow-sm">
       <h2 className="text-xl font-semibold">图库图片信息</h2>
       <div className="mt-4 space-y-4">
         {images.map((image, index) => (
-          <form key={image.id} action={(formData) => save(formData, image)} className="grid gap-3 rounded-xl border border-[#FFE8DC] p-3 md:grid-cols-[120px_1fr_90px_120px]">
-            <img src={image.imageUrl} alt="" className="aspect-square rounded-xl object-cover" />
-            <Input name="altZh" label="中文替代文字" defaultValue={image.altZh ?? ""} />
-            <Input name="sortOrder" label="排序" type="number" defaultValue={image.sortOrder ?? index + 1} />
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[#6B3F2A]">图片类型</span>
-              <select name="imageType" defaultValue={image.imageType ?? "gallery"} className="input">
-                <option value="main">主图</option><option value="gallery">图库</option><option value="detail">详情图</option>
-              </select>
-            </label>
-            <Input name="altEn" label="英文替代文字" defaultValue={image.altEn ?? ""} />
-            <div className="flex items-end gap-2 md:col-span-4">
-              <button className="inline-flex items-center gap-2 rounded-full bg-[#6B3F2A] px-4 py-3 font-semibold text-white"><Save size={16} /> 保存</button>
-              <button type="button" onClick={() => remove(image.id)} className="inline-flex items-center gap-2 rounded-full border border-red-200 px-4 py-3 font-semibold text-red-700"><Trash2 size={16} /> 删除</button>
-            </div>
-          </form>
+          <ImageEditor
+            key={image.id}
+            image={image}
+            sortOrder={image.sortOrder ?? index + 1}
+            onSave={(formData) => save(formData, image)}
+            onDelete={() => remove(image.id)}
+            onMoveUp={() => move(image, image.sortOrder ?? index + 1, -1)}
+            onMoveDown={() => move(image, image.sortOrder ?? index + 1, 1)}
+          />
         ))}
         {!images.length ? <p className="rounded-xl bg-[#FFF7EC] p-4 text-sm text-[#7A6258]">暂无图库图片，请先通过上方“图库图片”上传。</p> : null}
       </div>
@@ -640,17 +891,72 @@ function EditableImages({ images }: { images: CakeStyleImageRow[] }) {
   );
 }
 
+function ImageEditor({
+  image,
+  sortOrder,
+  onSave,
+  onDelete,
+  onMoveUp,
+  onMoveDown,
+}: {
+  image: CakeStyleImageRow;
+  sortOrder: number;
+  onSave: (formData: FormData) => void;
+  onDelete: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+}) {
+  const [language, setLanguage] = useState<"zh" | "en">("zh");
+
+  return (
+    <form action={onSave} className="rounded-xl border border-[#FFE8DC] p-3">
+      <div className="grid gap-3 md:grid-cols-[120px_1fr_120px]">
+        <img src={image.imageUrl} alt="" className="aspect-square rounded-xl object-cover" />
+        <div>
+          <div className={language === "zh" ? "" : "hidden"}>
+            <Input name="altZh" label="替代文字" defaultValue={image.altZh ?? ""} />
+          </div>
+          <div className={language === "en" ? "" : "hidden"}>
+            <Input name="altEn" label="替代文字" defaultValue={image.altEn ?? ""} />
+          </div>
+        </div>
+        <label className="block">
+          <span className="mb-2 block text-sm font-semibold text-[#6B3F2A]">图片类型</span>
+          <select name="imageType" defaultValue={image.imageType ?? "gallery"} className="input">
+            <option value="main">主图</option><option value="gallery">图库</option><option value="detail">详情图</option>
+          </select>
+        </label>
+      </div>
+      <input type="hidden" name="sortOrder" defaultValue={sortOrder} />
+      <FormFooter
+        language={language}
+        onLanguageChange={setLanguage}
+        onMoveUp={onMoveUp}
+        onMoveDown={onMoveDown}
+        onDelete={onDelete}
+        deleteTitle="确定删除这张图库图片吗？"
+      />
+    </form>
+  );
+}
+
 function EditableSections({ styleId, sections }: { styleId: string; sections: CakeStyleSectionRow[] }) {
   async function save(formData: FormData, section?: CakeStyleSectionRow) {
+    const rawTitleEn = stringValue(formData, "titleEn");
+    const rawTitleZh = stringValue(formData, "titleZh");
+    const titleZh = rawTitleZh || rawTitleEn;
+    const titleEn = rawTitleEn || rawTitleZh;
+    const bodyZh = stringValue(formData, "bodyZh");
+    const bodyEn = stringValue(formData, "bodyEn");
     await catalogAction({
       action: section ? "updateSection" : "createSection",
       id: section?.id,
       styleId,
-      sectionKey: stringValue(formData, "sectionKey"),
-      titleZh: stringValue(formData, "titleZh"),
-      titleEn: stringValue(formData, "titleEn"),
-      bodyZh: stringValue(formData, "bodyZh"),
-      bodyEn: stringValue(formData, "bodyEn"),
+      sectionKey: section?.sectionKey ?? generatedSectionKey(titleEn, titleZh),
+      titleZh,
+      titleEn,
+      bodyZh,
+      bodyEn,
       sortOrder: numberValue(formData, "sortOrder"),
       isActive: formData.get("isActive") === "on",
     });
@@ -660,41 +966,93 @@ function EditableSections({ styleId, sections }: { styleId: string; sections: Ca
     await catalogAction({ action: "deleteSection", id });
     window.location.reload();
   }
+  async function move(section: CakeStyleSectionRow, sortOrder: number, direction: -1 | 1) {
+    await catalogAction({
+      action: "updateSection",
+      id: section.id,
+      styleId,
+      sectionKey: section.sectionKey,
+      titleZh: section.titleZh,
+      titleEn: section.titleEn,
+      bodyZh: section.bodyZh ?? "",
+      bodyEn: section.bodyEn ?? "",
+      isActive: section.isActive,
+      sortOrder: sortOrder + direction,
+    });
+    window.location.reload();
+  }
   return (
     <section className="rounded-2xl bg-[#FFFCF7] p-5 shadow-sm">
       <h2 className="text-xl font-semibold">详情区块</h2>
       <div className="mt-4 space-y-4">
         {[...sections, null].map((section, index) => (
-          <form key={section?.id ?? "new-section"} action={(formData) => save(formData, section ?? undefined)} className="rounded-xl border border-[#FFE8DC] p-3">
-            <div className="grid gap-3 md:grid-cols-4">
-              <Input name="sectionKey" label="区块标识" defaultValue={section?.sectionKey ?? ""} required={Boolean(section)} />
-              <Input name="titleZh" label="中文标题" defaultValue={section?.titleZh ?? ""} required={Boolean(section)} />
-              <Input name="titleEn" label="英文标题" defaultValue={section?.titleEn ?? ""} required={Boolean(section)} />
-              <Input name="sortOrder" label="排序" type="number" defaultValue={section?.sortOrder ?? index + 1} />
-            </div>
-            <Textarea name="bodyZh" label="中文内容" defaultValue={section?.bodyZh ?? ""} />
-            <Textarea name="bodyEn" label="英文内容" defaultValue={section?.bodyEn ?? ""} />
-            <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-[#6B3F2A]"><input name="isActive" type="checkbox" defaultChecked={section?.isActive ?? true} /> 启用</label>
-            <div className="mt-3 flex gap-2">
-              <button className="inline-flex items-center gap-2 rounded-full bg-[#6B3F2A] px-4 py-3 font-semibold text-white"><Save size={16} /> 保存</button>
-              {section ? <button type="button" onClick={() => remove(section.id)} className="inline-flex items-center gap-2 rounded-full border border-red-200 px-4 py-3 font-semibold text-red-700"><Trash2 size={16} /> 删除</button> : null}
-            </div>
-          </form>
+          <SectionEditor
+            key={section?.id ?? "new-section"}
+            section={section}
+            sortOrder={section?.sortOrder ?? index + 1}
+            onSave={(formData) => save(formData, section ?? undefined)}
+            onDelete={section ? () => remove(section.id) : undefined}
+            onMoveUp={section ? () => move(section, section.sortOrder ?? index + 1, -1) : undefined}
+            onMoveDown={section ? () => move(section, section.sortOrder ?? index + 1, 1) : undefined}
+          />
         ))}
       </div>
     </section>
   );
 }
 
+function SectionEditor({
+  section,
+  sortOrder,
+  onSave,
+  onDelete,
+  onMoveUp,
+  onMoveDown,
+}: {
+  section: CakeStyleSectionRow | null;
+  sortOrder: number;
+  onSave: (formData: FormData) => void;
+  onDelete?: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+}) {
+  const [language, setLanguage] = useState<"zh" | "en">("zh");
+
+  return (
+    <form action={onSave} className="rounded-xl border border-[#FFE8DC] p-3">
+      <div className={language === "zh" ? "" : "hidden"}>
+        <Input name="titleZh" label="标题" defaultValue={section?.titleZh ?? ""} required={language === "zh"} />
+        <Textarea name="bodyZh" label="内容" defaultValue={section?.bodyZh ?? ""} />
+      </div>
+      <div className={language === "en" ? "" : "hidden"}>
+        <Input name="titleEn" label="标题" defaultValue={section?.titleEn ?? ""} required={language === "en"} />
+        <Textarea name="bodyEn" label="内容" defaultValue={section?.bodyEn ?? ""} />
+      </div>
+      <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-[#6B3F2A]"><input name="isActive" type="checkbox" defaultChecked={section?.isActive ?? true} /> 启用</label>
+      <input type="hidden" name="sortOrder" defaultValue={sortOrder} />
+      <FormFooter
+        language={language}
+        onLanguageChange={setLanguage}
+        onMoveUp={onMoveUp}
+        onMoveDown={onMoveDown}
+        onDelete={onDelete}
+        deleteTitle={`确定删除详情区块「${section?.titleZh ?? ""}」吗？`}
+      />
+    </form>
+  );
+}
+
 function EditableSizes({ styleId, sizes }: { styleId: string; sizes: CakeSizeOptionRow[] }) {
   async function save(formData: FormData, size?: CakeSizeOptionRow) {
+    const servingsZh = stringValue(formData, "servingsZh");
+    const servingsEn = stringValue(formData, "servingsEn");
     await catalogAction({
       action: size ? "updateSize" : "createSize",
       id: size?.id,
       styleId,
       sizeLabel: stringValue(formData, "sizeLabel"),
-      servingsZh: stringValue(formData, "servingsZh"),
-      servingsEn: stringValue(formData, "servingsEn"),
+      servingsZh,
+      servingsEn,
       price: numberValue(formData, "price"),
       currency: "SGD",
       isDefault: formData.get("isDefault") === "on",
@@ -707,27 +1065,85 @@ function EditableSizes({ styleId, sizes }: { styleId: string; sizes: CakeSizeOpt
     await catalogAction({ action: "deleteSize", id });
     window.location.reload();
   }
+  async function move(size: CakeSizeOptionRow, sortOrder: number, direction: -1 | 1) {
+    await catalogAction({
+      action: "updateSize",
+      id: size.id,
+      styleId,
+      sizeLabel: size.sizeLabel,
+      servingsZh: size.servingsZh ?? "",
+      servingsEn: size.servingsEn ?? "",
+      price: size.price,
+      currency: size.currency,
+      isDefault: size.isDefault,
+      isActive: size.isActive,
+      sortOrder: sortOrder + direction,
+    });
+    window.location.reload();
+  }
   return (
     <section className="rounded-2xl bg-[#FFFCF7] p-5 shadow-sm">
       <h2 className="text-xl font-semibold">尺寸与价格</h2>
       <div className="mt-4 space-y-4">
         {[...sizes, null].map((size, index) => (
-          <form key={size?.id ?? "new-size"} action={(formData) => save(formData, size ?? undefined)} className="grid gap-3 rounded-xl border border-[#FFE8DC] p-3 md:grid-cols-5">
-            <Input name="sizeLabel" label="尺寸" defaultValue={size?.sizeLabel ?? ""} required={Boolean(size)} />
-            <Input name="servingsZh" label="中文份量说明" defaultValue={size?.servingsZh ?? ""} />
-            <Input name="servingsEn" label="英文份量说明" defaultValue={size?.servingsEn ?? ""} />
-            <Input name="price" label="价格" type="number" defaultValue={size?.price ?? 77} />
-            <Input name="sortOrder" label="排序" type="number" defaultValue={size?.sortOrder ?? index + 1} />
-            <label className="flex items-center gap-2 text-sm font-semibold text-[#6B3F2A]"><input name="isDefault" type="checkbox" defaultChecked={size?.isDefault ?? false} /> 默认</label>
-            <label className="flex items-center gap-2 text-sm font-semibold text-[#6B3F2A]"><input name="isActive" type="checkbox" defaultChecked={size?.isActive ?? true} /> 启用</label>
-            <div className="flex gap-2 md:col-span-3">
-              <button className="inline-flex items-center gap-2 rounded-full bg-[#6B3F2A] px-4 py-3 font-semibold text-white"><Save size={16} /> 保存</button>
-              {size ? <button type="button" onClick={() => remove(size.id)} className="inline-flex items-center gap-2 rounded-full border border-red-200 px-4 py-3 font-semibold text-red-700"><Trash2 size={16} /> 删除</button> : null}
-            </div>
-          </form>
+          <SizeEditor
+            key={size?.id ?? "new-size"}
+            size={size}
+            sortOrder={size?.sortOrder ?? index + 1}
+            onSave={(formData) => save(formData, size ?? undefined)}
+            onDelete={size ? () => remove(size.id) : undefined}
+            onMoveUp={size ? () => move(size, size.sortOrder ?? index + 1, -1) : undefined}
+            onMoveDown={size ? () => move(size, size.sortOrder ?? index + 1, 1) : undefined}
+          />
         ))}
       </div>
     </section>
+  );
+}
+
+function SizeEditor({
+  size,
+  sortOrder,
+  onSave,
+  onDelete,
+  onMoveUp,
+  onMoveDown,
+}: {
+  size: CakeSizeOptionRow | null;
+  sortOrder: number;
+  onSave: (formData: FormData) => void;
+  onDelete?: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+}) {
+  const [language, setLanguage] = useState<"zh" | "en">("zh");
+
+  return (
+    <form action={onSave} className="rounded-xl border border-[#FFE8DC] p-3">
+      <div className="grid gap-3 md:grid-cols-4">
+        <Input name="sizeLabel" label="尺寸" defaultValue={size?.sizeLabel ?? ""} required={Boolean(size)} />
+        <Input name="price" label="价格" type="number" defaultValue={size?.price ?? 77} />
+        <div className={language === "zh" ? "" : "hidden"}>
+          <Input name="servingsZh" label="份量说明" defaultValue={size?.servingsZh ?? ""} />
+        </div>
+        <div className={language === "en" ? "" : "hidden"}>
+          <Input name="servingsEn" label="份量说明" defaultValue={size?.servingsEn ?? ""} />
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-4">
+        <label className="flex items-center gap-2 text-sm font-semibold text-[#6B3F2A]"><input name="isDefault" type="checkbox" defaultChecked={size?.isDefault ?? false} /> 默认</label>
+        <label className="flex items-center gap-2 text-sm font-semibold text-[#6B3F2A]"><input name="isActive" type="checkbox" defaultChecked={size?.isActive ?? true} /> 启用</label>
+      </div>
+      <input type="hidden" name="sortOrder" defaultValue={sortOrder} />
+      <FormFooter
+        language={language}
+        onLanguageChange={setLanguage}
+        onMoveUp={onMoveUp}
+        onMoveDown={onMoveDown}
+        onDelete={onDelete}
+        deleteTitle={`确定删除尺寸「${size?.sizeLabel ?? ""}」吗？`}
+      />
+    </form>
   );
 }
 
@@ -790,12 +1206,16 @@ function Textarea({ label, name, defaultValue }: { label: string; name: string; 
 }
 
 function collectionPayload(formData: FormData, action: string, id?: string) {
+  const rawTitleZh = stringValue(formData, "titleZh");
+  const rawTitleEn = stringValue(formData, "titleEn");
+  const titleZh = rawTitleZh || rawTitleEn;
+  const titleEn = rawTitleEn || rawTitleZh;
   return {
     action,
     id,
-    slug: stringValue(formData, "slug"),
-    titleZh: stringValue(formData, "titleZh"),
-    titleEn: stringValue(formData, "titleEn"),
+    slug: stringValue(formData, "slug") || generatedUniqueSlug(titleEn, titleZh),
+    titleZh,
+    titleEn,
     descriptionZh: stringValue(formData, "descriptionZh"),
     descriptionEn: stringValue(formData, "descriptionEn"),
     type: stringValue(formData, "type"),
@@ -805,13 +1225,17 @@ function collectionPayload(formData: FormData, action: string, id?: string) {
 }
 
 function stylePayload(formData: FormData, action: string, id?: string) {
+  const rawNameZh = stringValue(formData, "nameZh");
+  const rawNameEn = stringValue(formData, "nameEn");
+  const nameZh = rawNameZh || rawNameEn;
+  const nameEn = rawNameEn || rawNameZh;
   return {
     action,
     id,
     collectionId: stringValue(formData, "collectionId"),
-    slug: stringValue(formData, "slug"),
-    nameZh: stringValue(formData, "nameZh"),
-    nameEn: stringValue(formData, "nameEn"),
+    slug: stringValue(formData, "slug") || generatedSlug(nameEn, nameZh),
+    nameZh,
+    nameEn,
     subtitleZh: stringValue(formData, "subtitleZh"),
     subtitleEn: stringValue(formData, "subtitleEn"),
     descriptionZh: stringValue(formData, "descriptionZh"),

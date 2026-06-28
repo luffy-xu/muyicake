@@ -209,7 +209,7 @@ test("Admin catalog create and public catalog API flow", async ({ request }) => 
   expect(styleResponse.status()).toBe(200);
   const stylePayload = (await styleResponse.json()) as { result: { id: string } };
 
-  const sizeResponse = await request.post("/api/admin/catalog", {
+  const fourInchSizeResponse = await request.post("/api/admin/catalog", {
     headers: { Cookie: adminCookie! },
     data: {
       action: "createSize",
@@ -224,7 +224,7 @@ test("Admin catalog create and public catalog API flow", async ({ request }) => 
       sortOrder: 1,
     },
   });
-  expect(sizeResponse.status()).toBe(200);
+  expect(fourInchSizeResponse.status()).toBe(200);
 
   const publicStyles = await request.get(
     `/api/catalog/styles?locale=en&collectionSlug=${collectionPayload.result.slug}`,
@@ -324,18 +324,35 @@ test("Public Qixi drawer selection saves selected style", async ({ page, request
   });
   expect(sizeResponse.status()).toBe(200);
 
+  const sixInchSizeResponse = await request.post("/api/admin/catalog", {
+    headers: { Cookie: adminCookie! },
+    data: {
+      action: "createSize",
+      styleId: stylePayload.result.id,
+      sizeLabel: '6"',
+      servingsZh: "约 6-8 人",
+      servingsEn: "Serves 6-8",
+      price: 117,
+      currency: "SGD",
+      isDefault: false,
+      isActive: true,
+      sortOrder: 2,
+    },
+  });
+  expect(sixInchSizeResponse.status()).toBe(200);
+
   await page.goto("/qixi");
   await page.waitForResponse((response) =>
     response.url().includes("/api/catalog/collections") && response.status() === 200,
   );
-  await page.getByRole("button", { name: /七夕 4 寸小蛋糕/ }).click();
+  await page.getByRole("button", { name: /七夕 6 寸招牌蛋糕/ }).click();
   await expect(page.getByRole("heading", { name: "选择蛋糕款式与尺寸" })).toBeVisible();
   await page.getByRole("button", { name: new RegExp(styleNameZh) }).click();
   await expect(page.getByRole("heading", { name: styleNameZh })).toBeVisible();
   await page.getByRole("button", { name: /选择这款蛋糕/ }).click();
   await expect(page.getByText(styleNameZh)).toBeVisible();
-  await expect(page.getByText('4"')).toBeVisible();
-  await expect(page.locator("#reservation-form").getByText(/价格:\s*S\$77/)).toBeVisible();
+  await expect(page.locator("#reservation-form").getByText('6"')).toBeVisible();
+  await expect(page.locator("#reservation-form").getByText(/价格:\s*S\$117/)).toBeVisible();
 
   await page.getByPlaceholder("9123 4567").fill("9123 4567");
   await page.getByPlaceholder("姓名").fill(customerName);
@@ -362,8 +379,8 @@ test("Public Qixi drawer selection saves selected style", async ({ page, request
   const created = listPayload.reservations.find((reservation) => reservation.customerName === customerName);
   expect(created).toMatchObject({
     selectedStyleName: styleNameZh,
-    selectedSizeLabel: '4"',
-    selectedPrice: 77,
+    selectedSizeLabel: '6"',
+    selectedPrice: 117,
   });
 });
 
@@ -452,17 +469,50 @@ test("Admin style edit uses drawer and images page is reachable", async ({ page,
   await page.getByRole("button", { name: "新建款式" }).click();
   await expect(page.getByRole("heading", { name: "新建蛋糕款式" })).toBeVisible();
   await expect(page.getByLabel("主图 URL")).toHaveCount(0);
+  await expect(page.getByText("Slug 标识")).toHaveCount(0);
   await page.getByRole("button", { name: "关闭", exact: true }).click();
   await expect(page.getByRole("heading", { name: "新建蛋糕款式" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "详情" })).toHaveCount(0);
+  await page.locator("tbody tr").first().click();
+  await expect(page).toHaveURL(/\/admin\/catalog\/styles\/[^/]+$/);
 
   await page.goto("/admin/catalog/collections");
+  await expect(page.locator("thead")).not.toContainText("Slug");
   await page.getByRole("button", { name: "新建系列" }).click();
   await expect(page.getByRole("heading", { name: "新建蛋糕系列" })).toBeVisible();
   await expect(page.getByLabel("封面图片 URL")).toHaveCount(0);
+  await expect(page.getByText("Slug 标识")).toHaveCount(0);
   await page.getByRole("button", { name: "关闭", exact: true }).click();
 
   await page.goto("/admin/catalog/images");
   await expect(page.getByRole("heading", { name: "图片管理" })).toBeVisible();
   await expect(page.getByText("上传主图").first()).toBeVisible();
   await expect(page.getByText("上传图库").first()).toBeVisible();
+});
+
+test("Admin catalog delete actions require confirmation", async ({ page, request }) => {
+  test.skip(!process.env.DATABASE_URL, "Admin catalog UI requires DATABASE_URL.");
+
+  const loginResponse = await request.post("/api/admin/login", {
+    form: { password: "test-admin" },
+    maxRedirects: 0,
+  });
+  const adminCookie = loginResponse.headers()["set-cookie"]?.split(";")[0];
+  const [, cookieValue] = adminCookie!.split("=");
+  await page.context().addCookies([
+    {
+      name: "muyi_admin_session",
+      value: cookieValue,
+      url: "http://127.0.0.1:4173",
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
+
+  await page.goto("/admin/catalog/collections");
+  const firstRowDelete = page.locator("tbody tr").first().getByRole("button", { name: "删除" });
+  await firstRowDelete.click();
+  await expect(page.getByText("确认删除")).toBeVisible();
+  await page.getByRole("button", { name: "取消" }).click();
+  await expect(page.getByText("确认删除")).toHaveCount(0);
 });

@@ -34,7 +34,7 @@ export const qixiProducts = [
     basePrice: 117,
     priceLabel: "S$117",
     category: "qixi",
-    description: "Most giftable size for couples, including the full Qixi set.",
+    description: "Most giftable size for couples, with photo frame, printed photo, gift box, and preserved flowers.",
     badge: "Most Popular",
   },
 ] as const satisfies readonly Product[];

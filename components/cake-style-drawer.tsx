@@ -18,6 +18,7 @@ export function CakeStyleDrawer({
   open,
   locale,
   collectionTypes,
+  initialSizeLabel,
   dictionary,
   onClose,
   onSelect,
@@ -25,6 +26,7 @@ export function CakeStyleDrawer({
   open: boolean;
   locale: Locale;
   collectionTypes: Array<"qixi" | "birthday" | "custom">;
+  initialSizeLabel?: string;
   dictionary: ReturnType<typeof getDictionary>;
   onClose: () => void;
   onSelect: (selection: SelectedCakeStyle) => void;
@@ -68,9 +70,9 @@ export function CakeStyleDrawer({
       .then((response) => response.json() as Promise<{ style: PublicStyleDetail }>)
       .then((payload) => {
         setDetail(payload.style);
-        setSelectedSizeId(payload.style.sizeOptions.find((size) => size.isDefault)?.id ?? payload.style.sizeOptions[0]?.id ?? "");
+        setSelectedSizeId(resolveInitialSizeId(payload.style.sizeOptions, initialSizeLabel));
       });
-  }, [activeStyleId, locale]);
+  }, [activeStyleId, initialSizeLabel, locale]);
 
   const selectedSize = useMemo(
     () => detail?.sizeOptions.find((size) => size.id === selectedSizeId) ?? detail?.sizeOptions[0],
@@ -174,6 +176,21 @@ export function CakeStyleDrawer({
       </aside>
     </div>
   );
+}
+
+function resolveInitialSizeId(sizes: PublicSizeOption[], initialSizeLabel?: string) {
+  if (!sizes.length) {
+    return "";
+  }
+  const normalizedInitialSizeLabel = normalizeSizeLabel(initialSizeLabel);
+  if (normalizedInitialSizeLabel) {
+    return sizes.find((size) => normalizeSizeLabel(size.sizeLabel) === normalizedInitialSizeLabel)?.id ?? sizes[0].id;
+  }
+  return sizes.find((size) => size.isDefault)?.id ?? sizes[0].id;
+}
+
+function normalizeSizeLabel(label?: string) {
+  return label?.replace(/\s+/g, "").replace(/寸/g, '"').toLowerCase();
 }
 
 export function CakeStyleList({

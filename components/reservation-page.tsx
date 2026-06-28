@@ -1,6 +1,7 @@
 "use client";
 
 import { WhatsAppIcon } from "@/components/brand-logo";
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import {
   CakeStyleDrawer,
@@ -29,6 +30,7 @@ export function ReservationPage({
   const [catalogTypes, setCatalogTypes] = useState<Array<"qixi" | "birthday" | "custom">>([]);
   const [availableCatalogTypes, setAvailableCatalogTypes] = useState<Array<"qixi" | "birthday" | "custom">>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerInitialSizeLabel, setDrawerInitialSizeLabel] = useState<string | undefined>(undefined);
   const [selectedCakeStyle, setSelectedCakeStyle] = useState<SelectedCakeStyle | null>(null);
   const selectedProduct = useMemo(
     () => products.find((product) => product.code === selectedCode) ?? products[0],
@@ -51,6 +53,7 @@ export function ReservationPage({
     const hasCatalog = types.some((type) => availableCatalogTypes.includes(type));
     if (hasCatalog) {
       setCatalogTypes(types);
+      setDrawerInitialSizeLabel(getProductSizeLabel(product));
       setDrawerOpen(true);
       return;
     }
@@ -66,6 +69,7 @@ export function ReservationPage({
   function reopenDrawer() {
     const type = selectedProduct.category === "qixi" ? "qixi" : selectedProduct.category;
     setCatalogTypes([type]);
+    setDrawerInitialSizeLabel(selectedCakeStyle?.selectedSizeLabel ?? getProductSizeLabel(selectedProduct));
     setDrawerOpen(true);
   }
 
@@ -130,14 +134,27 @@ export function ReservationPage({
             title={mode === "qixi" ? dictionary.reservation.includedTitleQixi : dictionary.reservation.includedTitleCustom}
           />
           <div
-            className="mt-5 rounded-[20px] p-5"
+            className="mt-5 grid overflow-hidden rounded-[20px] md:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)]"
             style={{ background: "#FFF7EC", border: "1px solid rgba(247,182,200,0.28)" }}
           >
-            <p className="leading-[1.85] text-[#7A6258]">
-              {mode === "qixi"
-                ? dictionary.reservation.includedTextQixi
-                : dictionary.reservation.includedTextCustom}
-            </p>
+            {mode === "qixi" && (
+              <div className="relative aspect-square min-h-[230px] w-full overflow-hidden bg-[#FFE8DC]">
+                <Image
+                  src="/images/qixi-gifts.png"
+                  alt={dictionary.reservation.includedImageAltQixi}
+                  fill
+                  sizes="(min-width: 768px) 45vw, 100vw"
+                  className="object-cover"
+                />
+              </div>
+            )}
+            <div className="flex items-center p-5 md:p-6">
+              <p className="leading-[1.85] text-[#7A6258]">
+                {mode === "qixi"
+                  ? dictionary.reservation.includedTextQixi
+                  : dictionary.reservation.includedTextCustom}
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -188,12 +205,23 @@ export function ReservationPage({
         open={drawerOpen}
         locale={locale}
         collectionTypes={catalogTypes}
+        initialSizeLabel={drawerInitialSizeLabel}
         dictionary={dictionary}
         onClose={() => setDrawerOpen(false)}
         onSelect={selectCakeStyle}
       />
     </main>
   );
+}
+
+function getProductSizeLabel(product: Product) {
+  if (product.code.includes("_4_inch")) {
+    return '4"';
+  }
+  if (product.code.includes("_6_inch")) {
+    return '6"';
+  }
+  return undefined;
 }
 
 function SectionHeader({ eyebrow, title, className = "" }: { eyebrow: string; title: string; className?: string }) {
