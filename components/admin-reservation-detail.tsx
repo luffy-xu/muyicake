@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { MessageCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { AdminGate, getAdminPassword } from "@/components/admin-gate";
 import { createCustomerWhatsAppUrl } from "@/lib/whatsapp";
 import {
   deliverySlots,
@@ -12,14 +11,6 @@ import {
 } from "@/lib/validations";
 
 export function AdminReservationDetail({ id }: { id: string }) {
-  return (
-    <AdminGate>
-      <AdminReservationDetailContent id={id} />
-    </AdminGate>
-  );
-}
-
-function AdminReservationDetailContent({ id }: { id: string }) {
   const [reservation, setReservation] = useState<Reservation | null>(null);
   const [status, setStatus] = useState("");
   const [slot, setSlot] = useState("");
@@ -27,9 +18,7 @@ function AdminReservationDetailContent({ id }: { id: string }) {
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/reservations/${id}`, {
-      headers: { "x-admin-password": getAdminPassword() },
-    })
+    fetch(`/api/reservations/${id}`)
       .then((response) => response.json() as Promise<{ reservation: Reservation }>)
       .then((payload) => {
         setReservation(payload.reservation);
@@ -45,7 +34,6 @@ function AdminReservationDetailContent({ id }: { id: string }) {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        "x-admin-password": getAdminPassword(),
       },
       body: JSON.stringify({
         status,
@@ -93,6 +81,7 @@ function AdminReservationDetailContent({ id }: { id: string }) {
               <div className="mt-6 grid gap-5 md:grid-cols-2">
                 <Info title="Basic info" rows={[
                   ["Created", new Date(reservation.createdAt).toLocaleString()],
+                  ["Locale", reservation.locale],
                   ["Source", reservation.sourcePage],
                   ["Category", reservation.reservationCategory],
                   ["Status", reservation.status],
@@ -115,6 +104,13 @@ function AdminReservationDetailContent({ id }: { id: string }) {
                   ["Area", reservation.deliveryArea],
                   ["Address", reservation.deliveryAddress || "-"],
                   ["Confirmed slot", reservation.confirmedDeliverySlot || "-"],
+                ]} />
+                <Info title="Attribution" rows={[
+                  ["UTM source", reservation.utmSource || "-"],
+                  ["UTM medium", reservation.utmMedium || "-"],
+                  ["UTM campaign", reservation.utmCampaign || "-"],
+                  ["Referrer", reservation.referrer || "-"],
+                  ["Landing path", reservation.landingPath || "-"],
                 ]} />
               </div>
 

@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MuYi Cakes SG",
-  description: "Mobile-first handmade cake reservations in Singapore.",
+  title: "沐伊蛋糕新加坡 | MuYi Cakes SG",
+  description: "新加坡手作蛋糕 WhatsApp 预订。",
 };
 
 export default function RootLayout({
@@ -24,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="zh"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-[#FFF7EC] text-[#2B1E1A]">{children}</body>

@@ -1,9 +1,10 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Send } from "lucide-react";
+import type { Locale, getDictionary } from "@/lib/i18n";
 import type { Product } from "@/lib/products";
 import {
   reservationCreateSchema,
@@ -14,9 +15,13 @@ import {
 import { SuccessModal } from "@/components/success-modal";
 
 export function ReservationForm({
+  locale,
+  dictionary,
   mode,
   selectedProduct,
 }: {
+  locale: Locale;
+  dictionary: ReturnType<typeof getDictionary>;
   mode: "qixi" | "custom";
   selectedProduct: Product;
 }) {
@@ -27,9 +32,11 @@ export function ReservationForm({
     handleSubmit,
     formState: { errors, isSubmitting },
     reset,
+    setValue,
   } = useForm<ReservationCreateFormValues, unknown, ReservationCreateInput>({
     resolver: zodResolver(reservationCreateSchema),
     defaultValues: {
+      locale,
       sourcePage: mode,
       reservationCategory:
         mode === "qixi"
@@ -60,8 +67,22 @@ export function ReservationForm({
       referenceImageUrl: "",
       allergyNote: "",
       notes: "",
+      utmSource: "",
+      utmMedium: "",
+      utmCampaign: "",
+      referrer: "",
+      landingPath: "",
     },
   });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setValue("utmSource", params.get("utm_source") ?? "");
+    setValue("utmMedium", params.get("utm_medium") ?? "");
+    setValue("utmCampaign", params.get("utm_campaign") ?? "");
+    setValue("referrer", document.referrer);
+    setValue("landingPath", `${window.location.pathname}${window.location.search}`);
+  }, [setValue]);
 
   async function onSubmit(input: ReservationCreateInput) {
     setServerError(null);
@@ -75,7 +96,7 @@ export function ReservationForm({
       | { error: string };
 
     if (!response.ok || !("reservation" in payload)) {
-      setServerError("We could not save the reservation. Please check the form.");
+      setServerError(dictionary.reservation.form.serverError);
       return;
     }
 
@@ -90,21 +111,27 @@ export function ReservationForm({
         className="rounded-[2rem] border border-[#FFE8DC] bg-[#FFFCF7] p-5 shadow-lg shadow-[#E97796]/10 md:p-7"
       >
         <input type="hidden" {...register("sourcePage")} />
+        <input type="hidden" {...register("locale")} />
         <input type="hidden" {...register("reservationCategory")} />
         <input type="hidden" {...register("productCode")} />
         <input type="hidden" {...register("productName")} />
         <input type="hidden" {...register("basePrice", { valueAsNumber: true })} />
         <input type="hidden" {...register("currency")} />
+        <input type="hidden" {...register("utmSource")} />
+        <input type="hidden" {...register("utmMedium")} />
+        <input type="hidden" {...register("utmCampaign")} />
+        <input type="hidden" {...register("referrer")} />
+        <input type="hidden" {...register("landingPath")} />
         <input className="hidden" tabIndex={-1} autoComplete="off" {...register("website")} />
 
         <div className="mb-5 rounded-2xl bg-[#FFF7EC] p-4">
-          <p className="text-sm font-semibold text-[#D8A95D]">Selected cake</p>
-          <p className="mt-1 text-lg font-semibold">{selectedProduct.name}</p>
+          <p className="text-sm font-semibold text-[#D8A95D]">{dictionary.reservation.form.selectedCake}</p>
+          <p className="mt-1 text-lg font-semibold">{dictionary.products[selectedProduct.code].name}</p>
           <p className="text-[#E97796]">{selectedProduct.priceLabel}</p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <Field label="WhatsApp number" error={errors.whatsapp?.message}>
+          <Field label={dictionary.reservation.form.whatsapp} error={formatError(errors.whatsapp?.message, dictionary)}>
             <input
               {...register("whatsapp")}
               placeholder="+65 9123 4567"
@@ -112,48 +139,48 @@ export function ReservationForm({
               inputMode="tel"
             />
           </Field>
-          <Field label="Your name" error={errors.customerName?.message}>
-            <input {...register("customerName")} placeholder="Name" className="input" />
+          <Field label={dictionary.reservation.form.name} error={formatError(errors.customerName?.message, dictionary)}>
+            <input {...register("customerName")} placeholder={dictionary.reservation.form.namePlaceholder} className="input" />
           </Field>
-          <Field label="Delivery date" error={errors.deliveryDate?.message}>
+          <Field label={dictionary.reservation.form.deliveryDate} error={formatError(errors.deliveryDate?.message, dictionary)}>
             <input {...register("deliveryDate")} type="date" className="input" />
           </Field>
-          <Field label="Delivery area" error={errors.deliveryArea?.message}>
+          <Field label={dictionary.reservation.form.deliveryArea} error={formatError(errors.deliveryArea?.message, dictionary)}>
             <input
               {...register("deliveryArea")}
-              placeholder="Tampines, Orchard, Jurong..."
+              placeholder={dictionary.reservation.form.deliveryAreaPlaceholder}
               className="input"
             />
           </Field>
         </div>
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <Field label="Cake message">
-            <input {...register("cakeMessage")} placeholder="Happy Birthday" className="input" />
+          <Field label={dictionary.reservation.form.cakeMessage}>
+            <input {...register("cakeMessage")} placeholder={dictionary.reservation.form.cakeMessagePlaceholder} className="input" />
           </Field>
-          <Field label="Flavour preference">
-            <input {...register("flavourPreference")} placeholder="Less sweet, strawberry..." className="input" />
+          <Field label={dictionary.reservation.form.flavour}>
+            <input {...register("flavourPreference")} placeholder={dictionary.reservation.form.flavourPlaceholder} className="input" />
           </Field>
-          <Field label="Preferred color">
-            <input {...register("preferredColor")} placeholder="Blush pink, cream..." className="input" />
+          <Field label={dictionary.reservation.form.color}>
+            <input {...register("preferredColor")} placeholder={dictionary.reservation.form.colorPlaceholder} className="input" />
           </Field>
-          <Field label="Budget range">
+          <Field label={dictionary.reservation.form.budget}>
             <input {...register("budgetRange")} placeholder="S$100-S$150" className="input" />
           </Field>
         </div>
 
-        <Field label="Notes" className="mt-4">
+        <Field label={dictionary.reservation.form.notes} className="mt-4">
           <textarea
             {...register("notes")}
             rows={4}
-            placeholder="Tell us the occasion, style, delivery details, or allergies."
+            placeholder={dictionary.reservation.form.notesPlaceholder}
             className="input resize-none"
           />
         </Field>
 
         <label className="mt-4 flex items-center gap-3 text-sm text-[#7A6258]">
           <input type="checkbox" {...register("isInterestedInMembership")} />
-          I am interested in future member updates.
+          {dictionary.reservation.form.membership}
         </label>
 
         {serverError ? <p className="mt-4 text-sm text-red-600">{serverError}</p> : null}
@@ -163,17 +190,21 @@ export function ReservationForm({
           className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#E97796] px-5 py-3 font-semibold text-white shadow-md shadow-[#E97796]/20 disabled:opacity-60"
         >
           <Send size={18} />
-          {isSubmitting ? "Submitting..." : "Submit reservation"}
+          {isSubmitting ? dictionary.reservation.form.submitting : dictionary.reservation.form.submit}
         </button>
         <p className="mt-3 text-center text-xs text-[#7A6258]">
-          Reservation only. No payment or cart is created.
+          {dictionary.reservation.form.noPayment}
         </p>
       </form>
       {success ? (
-        <SuccessModal reservation={success} onClose={() => setSuccess(null)} />
+        <SuccessModal reservation={success} dictionary={dictionary} locale={locale} onClose={() => setSuccess(null)} />
       ) : null}
     </>
   );
+}
+
+function formatError(message: string | undefined, dictionary: ReturnType<typeof getDictionary>) {
+  return message ? dictionary.reservation.form.validationError : undefined;
 }
 
 function Field({

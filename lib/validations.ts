@@ -23,11 +23,14 @@ export const deliverySlots = [
 export const reservationCategorySchema = z.enum(["qixi", "birthday", "custom"]);
 export const sourcePageSchema = z.enum(["home", "qixi", "custom"]);
 export const statusSchema = z.enum(statusValues);
+export const localeSchema = z.enum(["zh", "en"]);
 
 const optionalText = z.string().trim().max(500).optional().or(z.literal(""));
+const optionalAttributionText = z.string().trim().max(1000).optional().or(z.literal(""));
 
 export const reservationCreateSchema = z
   .object({
+    locale: localeSchema.default("zh"),
     sourcePage: sourcePageSchema,
     reservationCategory: reservationCategorySchema,
     productCode: z.string().trim().min(1),
@@ -51,6 +54,11 @@ export const reservationCreateSchema = z
     referenceImageUrl: optionalText,
     allergyNote: optionalText,
     notes: optionalText,
+    utmSource: optionalAttributionText,
+    utmMedium: optionalAttributionText,
+    utmCampaign: optionalAttributionText,
+    referrer: optionalAttributionText,
+    landingPath: optionalAttributionText,
     isInterestedInMembership: z.coerce.boolean().default(false),
     website: z.string().max(0).optional(),
   })

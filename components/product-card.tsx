@@ -4,10 +4,20 @@ import type { Product } from "@/lib/products";
 
 export function ProductCard({
   product,
+  name,
+  description,
+  badge,
+  photoLabel,
+  selectLabel,
   selected,
   onSelect,
 }: {
   product: Product;
+  name: string;
+  description: string;
+  badge?: string;
+  photoLabel: string;
+  selectLabel: string;
   selected: boolean;
   onSelect: (product: Product) => void;
 }) {
@@ -23,13 +33,13 @@ export function ProductCard({
       aria-pressed={selected}
     >
       <div className="mb-4 flex aspect-[5/3] items-center justify-center rounded-[1.25rem] bg-[linear-gradient(135deg,#FFF7EC,#F7B6C8,#D9C7F2)] text-center text-sm font-semibold text-[#6B3F2A]">
-        Cake photo coming soon
+        {photoLabel}
       </div>
       <div className="flex items-start justify-between gap-3">
-        <h3 className="text-lg font-semibold text-[#2B1E1A]">{product.name}</h3>
-        {product.badge ? (
+        <h3 className="text-lg font-semibold text-[#2B1E1A]">{name}</h3>
+        {badge ? (
           <span className="shrink-0 rounded-full bg-[#D8A95D] px-3 py-1 text-xs font-semibold text-white">
-            {product.badge}
+            {badge}
           </span>
         ) : null}
       </div>
@@ -37,10 +47,10 @@ export function ProductCard({
         {product.priceLabel}
       </p>
       <p className="mt-3 flex-1 text-sm leading-6 text-[#7A6258]">
-        {product.description}
+        {description}
       </p>
       <span className="mt-5 text-sm font-semibold text-[#6B3F2A]">
-        Select and reserve
+        {selectLabel}
       </span>
     </button>
   );

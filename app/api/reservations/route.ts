@@ -1,18 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { isAdminRequest } from "@/lib/admin-auth";
 import { createReservation, listReservations } from "@/lib/reservations";
+import { sendNewReservationNotification } from "@/lib/notifications";
 import { reservationCreateSchema } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
-function isAdmin(request: Request) {
-  const configured = process.env.ADMIN_PASSWORD;
-  if (!configured) {
-    return process.env.NODE_ENV !== "production";
-  }
-  return request.headers.get("x-admin-password") === configured;
-}
-
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const parsed = reservationCreateSchema.safeParse(body);
 
@@ -28,11 +22,12 @@ export async function POST(request: Request) {
   }
 
   const reservation = await createReservation(parsed.data);
+  await sendNewReservationNotification(reservation);
   return NextResponse.json({ reservation }, { status: 201 });
 }
 
-export async function GET(request: Request) {
-  if (!isAdmin(request)) {
+export async function GET(request: NextRequest) {
+  if (!isAdminRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

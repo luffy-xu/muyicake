@@ -2,6 +2,7 @@ import { boolean, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core"
 
 export const reservations = pgTable("reservations", {
   id: text("id").primaryKey(),
+  locale: text("locale").default("zh").notNull(),
   sourcePage: text("source_page").notNull(),
   reservationCategory: text("reservation_category").notNull(),
   productCode: text("product_code").notNull(),
@@ -25,6 +26,11 @@ export const reservations = pgTable("reservations", {
   referenceImageUrl: text("reference_image_url"),
   allergyNote: text("allergy_note"),
   notes: text("notes"),
+  utmSource: text("utm_source"),
+  utmMedium: text("utm_medium"),
+  utmCampaign: text("utm_campaign"),
+  referrer: text("referrer"),
+  landingPath: text("landing_path"),
   isInterestedInMembership: boolean("is_interested_in_membership")
     .default(false)
     .notNull(),

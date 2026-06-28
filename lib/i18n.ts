@@ -1,0 +1,232 @@
+import type { ProductCode } from "@/lib/products";
+
+export type Locale = "zh" | "en";
+
+export const defaultLocale: Locale = "zh";
+export const locales = ["zh", "en"] as const;
+
+export function isLocale(value: string): value is Locale {
+  return locales.includes(value as Locale);
+}
+
+export function localePrefix(locale: Locale) {
+  return locale === "en" ? "/en" : "";
+}
+
+export function localizedPath(path: string, locale: Locale) {
+  const cleanPath = path === "/" ? "" : path.replace(/^\/en(?=\/|$)/, "");
+  return `${localePrefix(locale)}${cleanPath || ""}` || "/";
+}
+
+export function oppositeLocalePath(path: string) {
+  const isEnglish = path === "/en" || path.startsWith("/en/");
+  return localizedPath(path, isEnglish ? "zh" : "en");
+}
+
+type ProductCopy = Record<ProductCode, { name: string; description: string; badge?: string }>;
+
+export const dictionaries = {
+  zh: {
+    seo: {
+      homeTitle: "沐伊蛋糕新加坡 | WhatsApp 预订手作蛋糕",
+      homeDescription: "新加坡手作七夕、生日与主题蛋糕预订。无需线上付款，WhatsApp 确认设计、价格与配送时间。",
+      qixiTitle: "七夕蛋糕预订 | 沐伊蛋糕新加坡",
+      qixiDescription: "预订沐伊七夕蛋糕礼盒，包含蛋糕、相框、照片与礼盒。WhatsApp 确认配送。",
+      customTitle: "生日与主题蛋糕预订 | 沐伊蛋糕新加坡",
+      customDescription: "预订新加坡生日、儿童主题、情侣家庭与企业庆祝蛋糕。先提交需求，再 WhatsApp 确认细节。",
+    },
+    header: {
+      whatsapp: "WhatsApp 咨询",
+      language: "EN",
+    },
+    home: {
+      eyebrow: "新加坡手作蛋糕预订",
+      title: "MuYi Cakes SG / 沐伊蛋糕新加坡",
+      subtitle: "预订七夕礼盒或日常生日、主题蛋糕。无需购物车、无需线上付款，我们会在 WhatsApp 上确认设计、价格与配送时间。",
+      qixiCta: "预订七夕蛋糕",
+      customCta: "预订定制蛋糕",
+      imageEyebrow: "蛋糕图片即将更新",
+      imageText: "奶油花艺、柔和配色、适合送礼的手作蛋糕",
+      qixiTitle: "七夕限定",
+      qixiText: "4 寸与 6 寸蛋糕，包含相框、打印照片与礼盒。",
+      customTitle: "日常定制蛋糕",
+      customText: "生日、儿童主题、情侣、家庭与公司庆祝蛋糕。",
+      howTitle: "预订流程",
+      steps: ["选择蛋糕款式。", "提交 WhatsApp、姓名、配送日期与区域。", "沐伊通过 WhatsApp 跟进确认细节。"],
+      footer: "MuYi Cakes SG。仅收集预订信息，付款与配送时间稍后通过 WhatsApp 确认。",
+    },
+    reservation: {
+      qixiEyebrow: "七夕礼盒",
+      customEyebrow: "日常定制蛋糕",
+      qixiTitle: "七夕蛋糕预订",
+      qixiSubtitle: "预订沐伊七夕礼盒，包含蛋糕、相框、打印照片与礼盒。我们会通过 WhatsApp 确认细节与配送。",
+      customTitle: "生日与主题蛋糕预订",
+      customSubtitle: "预订生日、儿童主题、情侣、家庭或企业庆祝蛋糕。先提交想法，我们再通过 WhatsApp 确认可制作内容。",
+      reserveNow: "立即预订",
+      heroPlaceholderQixi: "七夕礼盒图片即将更新",
+      heroPlaceholderCustom: "定制蛋糕图片即将更新",
+      heroText: "手作蛋糕、适合送礼、WhatsApp 一对一确认",
+      chooseCake: "选择蛋糕",
+      selectReserve: "选择并预订",
+      photoComing: "蛋糕图片即将更新",
+      includedTitleQixi: "包含照片相框礼品",
+      includedTextQixi: "每套七夕礼盒包含蛋糕、相框、打印照片与礼盒。",
+      includedTitleCustom: "照片回忆礼品服务",
+      includedTextCustom: "提交预订后可继续分享想法与参考图，我们会在制作前通过 WhatsApp 确认可行方案。",
+      detailsTitle: "预订资料",
+      faqTitle: "常见问题",
+      stickyCta: "预订已选择蛋糕",
+      faq: [
+        ["需要线上付款吗？", "不需要。本 MVP 只收集预订资料，付款稍后通过 WhatsApp 沟通。"],
+        ["配送时间现在就固定吗？", "不会。请先提交日期与区域，准确时段由商家确认。"],
+        ["可以定制细节吗？", "可以。可填写口味、颜色、祝福语与备注，我们会继续跟进。"],
+      ],
+      form: {
+        selectedCake: "已选择蛋糕",
+        whatsapp: "WhatsApp 号码",
+        name: "您的姓名",
+        namePlaceholder: "姓名",
+        deliveryDate: "配送日期",
+        deliveryArea: "配送区域",
+        deliveryAreaPlaceholder: "Tampines、Orchard、Jurong...",
+        cakeMessage: "蛋糕祝福语",
+        cakeMessagePlaceholder: "生日快乐",
+        flavour: "口味偏好",
+        flavourPlaceholder: "少甜、草莓...",
+        color: "颜色偏好",
+        colorPlaceholder: "腮红粉、奶油色...",
+        budget: "预算范围",
+        notes: "备注",
+        notesPlaceholder: "告诉我们场合、风格、配送细节或过敏提醒。",
+        membership: "我愿意接收未来会员更新。",
+        submit: "提交预订",
+        submitting: "提交中...",
+        noPayment: "仅提交预订。不会产生付款或购物车。",
+        serverError: "暂时无法保存预订，请检查表格或稍后重试。",
+        validationError: "请填写有效资料。",
+      },
+      success: {
+        eyebrow: "已收到预订",
+        title: "我们会通过 WhatsApp 跟进",
+        reservationId: "预订编号",
+        product: "蛋糕",
+        delivery: "配送",
+        text: "目前没有收取付款。沐伊会通过 WhatsApp 确认设计、最终价格与配送时间。",
+        whatsapp: "打开 WhatsApp 并附上编号",
+        close: "关闭成功提示",
+      },
+    },
+    products: {
+      qixi_4_inch: { name: '七夕 4 寸小蛋糕', description: "精致情侣小蛋糕，包含相框、打印照片与礼盒。" },
+      qixi_6_inch: { name: '七夕 6 寸招牌蛋糕', description: "适合情侣送礼的人气尺寸，包含完整七夕礼盒。", badge: "人气款" },
+      birthday_4_inch: { name: '经典生日 4 寸蛋糕', description: "适合小型庆祝的温柔手作生日蛋糕。" },
+      birthday_6_inch: { name: '招牌生日 6 寸蛋糕', description: "适合朋友、家人与惊喜配送的招牌尺寸。" },
+      kids_theme: { name: "儿童主题蛋糕", description: "柔和配色、可爱细节，围绕主题设计。" },
+      celebration: { name: "家庭 / 情侣庆祝蛋糕", description: "适合纪念日、家庭日与情侣礼物。" },
+      corporate: { name: "企业庆祝蛋糕", description: "适合团队庆祝与办公室送礼的品牌友好款式。" },
+      custom_theme: { name: "定制主题蛋糕", description: "适合未列出的主题与更自由的定制需求。" },
+    } satisfies ProductCopy,
+  },
+  en: {
+    seo: {
+      homeTitle: "MuYi Cakes SG | WhatsApp Cake Reservations",
+      homeDescription: "Reserve handmade Qixi, birthday, and custom cakes in Singapore. No payment now; confirm details on WhatsApp.",
+      qixiTitle: "Qixi Cake Reservations | MuYi Cakes SG",
+      qixiDescription: "Reserve a MuYi Qixi cake gift set with cake, photo frame, printed photo, and gift box.",
+      customTitle: "Birthday & Custom Cake Reservations | MuYi Cakes SG",
+      customDescription: "Reserve birthday, kids theme, couple, family, and corporate celebration cakes in Singapore.",
+    },
+    header: { whatsapp: "WhatsApp", language: "中文" },
+    home: {
+      eyebrow: "Handmade cakes in Singapore",
+      title: "MuYi Cakes SG / 沐伊蛋糕新加坡",
+      subtitle: "Reserve a romantic Qixi gift set or a daily custom celebration cake. No checkout, no cart, no payment online. We follow up on WhatsApp to confirm design, price, and delivery timing.",
+      qixiCta: "Qixi reservation",
+      customCta: "Custom cake",
+      imageEyebrow: "Cake photo coming soon",
+      imageText: "Soft cream, blush florals, gift-ready finishing",
+      qixiTitle: "Qixi campaign",
+      qixiText: 'Mini 4" and Signature 6" cakes with photo frame, printed photo, and gift box.',
+      customTitle: "Daily custom cakes",
+      customText: "Birthday, kids theme, couple, family, and corporate celebration cakes.",
+      howTitle: "How it works",
+      steps: ["Choose a cake style.", "Submit WhatsApp, name, delivery date, and area.", "MuYi follows up on WhatsApp to confirm details."],
+      footer: "MuYi Cakes SG. Reservations only. Payment and delivery timing are confirmed later on WhatsApp.",
+    },
+    reservation: {
+      qixiEyebrow: "Qixi gift set",
+      customEyebrow: "Daily custom cakes",
+      qixiTitle: "Custom Cakes for Qixi, Birthdays & Family Moments",
+      qixiSubtitle: "Reserve a romantic MuYi Qixi gift set with cake, photo frame, printed photo, and gift box. No payment needed now.",
+      customTitle: "Daily birthday and custom cakes",
+      customSubtitle: "Reserve a handmade cake for birthdays, kids themes, couples, family, or corporate celebrations. Share ideas now; confirm details on WhatsApp.",
+      reserveNow: "Reserve now",
+      heroPlaceholderQixi: "Qixi gift set placeholder",
+      heroPlaceholderCustom: "Custom cake example placeholder",
+      heroText: "Handmade, giftable, and confirmed personally on WhatsApp",
+      chooseCake: "Choose your cake",
+      selectReserve: "Select and reserve",
+      photoComing: "Cake photo coming soon",
+      includedTitleQixi: "Photo frame gift included",
+      includedTextQixi: "Each Qixi set includes cake, photo frame, printed photo, and gift box.",
+      includedTitleCustom: "Photo memory gift service",
+      includedTextCustom: "Share your idea and references after reservation. We will confirm what is possible through WhatsApp before production.",
+      detailsTitle: "Reservation details",
+      faqTitle: "FAQ",
+      stickyCta: "Reserve selected cake",
+      faq: [
+        ["Do I pay online?", "No. This MVP only collects reservation details. Payment is discussed later on WhatsApp."],
+        ["Is delivery time fixed now?", "No. Submit the date and area first; the exact slot is confirmed by the merchant."],
+        ["Can I customize details?", "Yes. Add optional notes, colors, flavours, and message. We will follow up."],
+      ],
+      form: {
+        selectedCake: "Selected cake",
+        whatsapp: "WhatsApp number",
+        name: "Your name",
+        namePlaceholder: "Name",
+        deliveryDate: "Delivery date",
+        deliveryArea: "Delivery area",
+        deliveryAreaPlaceholder: "Tampines, Orchard, Jurong...",
+        cakeMessage: "Cake message",
+        cakeMessagePlaceholder: "Happy Birthday",
+        flavour: "Flavour preference",
+        flavourPlaceholder: "Less sweet, strawberry...",
+        color: "Preferred color",
+        colorPlaceholder: "Blush pink, cream...",
+        budget: "Budget range",
+        notes: "Notes",
+        notesPlaceholder: "Tell us the occasion, style, delivery details, or allergies.",
+        membership: "I am interested in future member updates.",
+        submit: "Submit reservation",
+        submitting: "Submitting...",
+        noPayment: "Reservation only. No payment or cart is created.",
+        serverError: "We could not save the reservation. Please check the form.",
+        validationError: "Please enter valid details.",
+      },
+      success: {
+        eyebrow: "Reservation received",
+        title: "We will follow up on WhatsApp",
+        reservationId: "Reservation ID",
+        product: "Product",
+        delivery: "Delivery",
+        text: "No payment has been collected. MuYi Cakes will confirm design, final price if needed, and delivery time through WhatsApp.",
+        whatsapp: "Open WhatsApp with ID",
+        close: "Close success modal",
+      },
+    },
+    products: {
+      qixi_4_inch: { name: 'Qixi Mini Cake 4"', description: "Petite romantic cake with photo frame, printed photo, gift box." },
+      qixi_6_inch: { name: 'Qixi Signature Cake 6"', description: "Most giftable size for couples, including the full Qixi set.", badge: "Most Popular" },
+      birthday_4_inch: { name: 'Classic Birthday Cake 4"', description: "A warm handmade birthday cake for a small celebration." },
+      birthday_6_inch: { name: 'Signature Birthday Cake 6"', description: "A signature size for friends, family, and surprise deliveries." },
+      kids_theme: { name: "Kids Theme Cake", description: "Soft colors, playful details, and theme-led decoration." },
+      celebration: { name: "Family / Couple Celebration Cake", description: "Designed for anniversaries, family days, and couple gifts." },
+      corporate: { name: "Corporate Celebration Cake", description: "Brand-friendly cake for team celebrations and office gifting." },
+      custom_theme: { name: "Custom Theme Cake", description: "A flexible custom cake brief for themes not listed above." },
+    } satisfies ProductCopy,
+  },
+} as const;
+
+export function getDictionary(locale: Locale) {
+  return dictionaries[locale];
+}

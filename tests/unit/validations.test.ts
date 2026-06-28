@@ -16,7 +16,23 @@ const basePayload = {
 
 describe("reservationCreateSchema", () => {
   it("accepts required reservation fields", () => {
-    expect(reservationCreateSchema.safeParse(basePayload).success).toBe(true);
+    const result = reservationCreateSchema.safeParse(basePayload);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.locale).toBe("zh");
+    }
+  });
+
+  it("accepts locale and attribution fields", () => {
+    const result = reservationCreateSchema.safeParse({
+      ...basePayload,
+      locale: "en",
+      utmSource: "instagram",
+      utmCampaign: "qixi_preheat",
+      referrer: "https://www.instagram.com/",
+      landingPath: "/en/qixi?utm_source=instagram",
+    });
+    expect(result.success).toBe(true);
   });
 
   it("rejects mismatched product details", () => {

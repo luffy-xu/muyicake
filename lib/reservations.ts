@@ -1,8 +1,6 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
 import { desc, eq } from "drizzle-orm";
 import { reservations as reservationsTable } from "@/db/schema";
-import { getDb } from "@/lib/db";
+import { canUseLocalReservationStore, getDb } from "@/lib/db";
 import { createReservationId } from "@/lib/reservation-id";
 import type {
   Reservation,
@@ -10,19 +8,19 @@ import type {
   ReservationUpdateInput,
 } from "@/lib/validations";
 
-const defaultStore = path.join(
-  /*turbopackIgnore: true*/ process.cwd(),
-  ".data",
-  "reservations.json",
-);
-
-function storeFile() {
-  return process.env.RESERVATION_STORE_FILE || defaultStore;
+async function storeFile() {
+  const path = await import("node:path");
+  return (
+    process.env.RESERVATION_STORE_FILE ||
+    path.join(/*turbopackIgnore: true*/ process.cwd(), ".data", "reservations.json")
+  );
 }
 
 async function readLocalReservations(): Promise<Reservation[]> {
+  assertLocalReservationStoreAllowed();
+  const fs = await import("node:fs/promises");
   try {
-    const raw = await fs.readFile(storeFile(), "utf8");
+    const raw = await fs.readFile(await storeFile(), "utf8");
     return JSON.parse(raw) as Reservation[];
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
@@ -33,9 +31,20 @@ async function readLocalReservations(): Promise<Reservation[]> {
 }
 
 async function writeLocalReservations(reservations: Reservation[]) {
-  const file = storeFile();
+  assertLocalReservationStoreAllowed();
+  const fs = await import("node:fs/promises");
+  const path = await import("node:path");
+  const file = await storeFile();
   await fs.mkdir(path.dirname(file), { recursive: true });
   await fs.writeFile(file, JSON.stringify(reservations, null, 2));
+}
+
+function assertLocalReservationStoreAllowed() {
+  if (!canUseLocalReservationStore()) {
+    throw new Error(
+      "Local JSON reservation store is disabled in production. Set DATABASE_URL to use PostgreSQL.",
+    );
+  }
 }
 
 function cleanOptional(value: string | undefined) {
@@ -58,6 +67,11 @@ function cleanReservation(input: ReservationCreateInput): Omit<Reservation, "id"
     referenceImageUrl: cleanOptional(input.referenceImageUrl),
     allergyNote: cleanOptional(input.allergyNote),
     notes: cleanOptional(input.notes),
+    utmSource: cleanOptional(input.utmSource),
+    utmMedium: cleanOptional(input.utmMedium),
+    utmCampaign: cleanOptional(input.utmCampaign),
+    referrer: cleanOptional(input.referrer),
+    landingPath: cleanOptional(input.landingPath),
   };
 }
 

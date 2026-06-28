@@ -16,6 +16,12 @@ Launch Readiness / Production Hardening.
 
 The MVP routes and reservation flow already exist. Do not rebuild the MVP from scratch.
 
+## Deployment Status
+- Neon/PostgreSQL storage is configured locally via `.env.local`.
+- Required Vercel environment variables have been configured by the project owner.
+- Drizzle migrations have been applied successfully to the configured database.
+- Before launch, verify the Vercel preview URL manually against `docs/launch-qa-checklist.md`.
+
 ## Core Product Constraints
 - Do not add online payment yet.
 - Do not add cart.
@@ -39,10 +45,8 @@ Before claiming completion, run:
 - npm run build
 
 ## Current Priorities
-1. Generate and apply Drizzle migrations.
-2. Remove production dependency on local JSON fallback.
-3. Improve admin auth with HttpOnly session cookie.
-4. Add UTM/referrer tracking.
-5. Add optional new-order email notification.
-6. Add launch QA checklist.
-7. Prepare Vercel deployment.
+1. Verify Vercel preview deployment.
+2. Run launch QA checklist on mobile Safari and Android Chrome.
+3. Confirm reservation writes appear in Neon/PostgreSQL.
+4. Confirm admin login and WhatsApp follow-up from preview.
+5. Enable optional Resend notification when ready.

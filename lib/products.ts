@@ -1,7 +1,16 @@
 export type ProductCategory = "qixi" | "birthday" | "custom";
+export type ProductCode =
+  | "qixi_4_inch"
+  | "qixi_6_inch"
+  | "birthday_4_inch"
+  | "birthday_6_inch"
+  | "kids_theme"
+  | "celebration"
+  | "corporate"
+  | "custom_theme";
 
 export type Product = {
-  code: string;
+  code: ProductCode;
   name: string;
   basePrice: number;
   priceLabel: string;
@@ -82,8 +91,6 @@ export const customProducts = [
 ] as const satisfies readonly Product[];
 
 export const products = [...qixiProducts, ...customProducts] as const;
-
-export type ProductCode = (typeof products)[number]["code"];
 
 export function getProduct(code: string): Product | undefined {
   return products.find((product) => product.code === code);

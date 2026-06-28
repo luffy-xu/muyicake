@@ -5,14 +5,14 @@ export default defineConfig({
   fullyParallel: false,
   retries: 0,
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL: "http://127.0.0.1:4173",
     trace: "on-first-retry",
   },
   webServer: {
     command:
-      "ADMIN_PASSWORD=test-admin NEXT_PUBLIC_MERCHANT_WHATSAPP=6591234567 RESERVATION_STORE_FILE=/private/tmp/muyi-e2e-reservations.json npm run start -- --hostname 127.0.0.1 --port 3000",
-    url: "http://127.0.0.1:3000",
-    reuseExistingServer: !process.env.CI,
+      "ADMIN_PASSWORD=test-admin ADMIN_SESSION_SECRET=test-admin-session-secret NEXT_PUBLIC_SITE_URL=http://127.0.0.1:4173 NEXT_PUBLIC_WHATSAPP_BUSINESS_PHONE=6591234567 ALLOW_JSON_RESERVATION_STORE=true RESERVATION_STORE_FILE=/private/tmp/muyi-e2e-reservations.json npm run start -- --hostname 127.0.0.1 --port 4173",
+    url: "http://127.0.0.1:4173",
+    reuseExistingServer: false,
     timeout: 120_000,
   },
   projects: [

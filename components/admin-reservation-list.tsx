@@ -2,25 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { AdminGate, getAdminPassword } from "@/components/admin-gate";
 import type { Reservation } from "@/lib/validations";
 
 export function AdminReservationList() {
-  return (
-    <AdminGate>
-      <AdminReservationListContent />
-    </AdminGate>
-  );
-}
-
-function AdminReservationListContent() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/reservations", {
-      headers: { "x-admin-password": getAdminPassword() },
-    })
+    fetch("/api/reservations")
       .then(async (response) => {
         if (!response.ok) {
           throw new Error("Unauthorized or unavailable");
@@ -33,9 +22,18 @@ function AdminReservationListContent() {
 
   return (
     <main className="min-h-screen bg-[#FFF7EC] p-5">
-        <div className="mx-auto max-w-7xl">
-          <h1 className="text-3xl font-semibold">Reservations</h1>
-          <p className="mt-2 text-[#7A6258]">Manage WhatsApp follow-up and delivery confirmation.</p>
+      <div className="mx-auto max-w-7xl">
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+            <div>
+              <h1 className="text-3xl font-semibold">Reservations</h1>
+              <p className="mt-2 text-[#7A6258]">Manage WhatsApp follow-up and delivery confirmation.</p>
+            </div>
+            <form action="/api/admin/logout" method="post">
+              <button className="rounded-full bg-[#6B3F2A] px-4 py-2 text-sm font-semibold text-white">
+                Logout
+              </button>
+            </form>
+          </div>
           {error ? <p className="mt-5 text-red-600">{error}</p> : null}
           <div className="mt-6 overflow-x-auto rounded-3xl bg-[#FFFCF7] shadow-sm">
             <table className="w-full min-w-[1100px] text-left text-sm">
@@ -46,8 +44,10 @@ function AdminReservationListContent() {
                     "Created At",
                     "Customer Name",
                     "WhatsApp",
+                    "Locale",
                     "Category",
                     "Product",
+                    "Source",
                     "Base Price",
                     "Delivery Date",
                     "Delivery Area",
@@ -67,8 +67,10 @@ function AdminReservationListContent() {
                     <td className="px-4 py-3">{new Date(reservation.createdAt).toLocaleString()}</td>
                     <td className="px-4 py-3">{reservation.customerName}</td>
                     <td className="px-4 py-3">{reservation.whatsapp}</td>
+                    <td className="px-4 py-3">{reservation.locale}</td>
                     <td className="px-4 py-3">{reservation.reservationCategory}</td>
                     <td className="px-4 py-3">{reservation.productName}</td>
+                    <td className="px-4 py-3">{reservation.utmSource || reservation.referrer || "-"}</td>
                     <td className="px-4 py-3">S${reservation.basePrice}</td>
                     <td className="px-4 py-3">{reservation.deliveryDate}</td>
                     <td className="px-4 py-3">{reservation.deliveryArea}</td>
