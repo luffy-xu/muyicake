@@ -54,6 +54,12 @@ function cleanOptional(value: string | undefined) {
 function cleanReservation(input: ReservationCreateInput): Omit<Reservation, "id" | "status" | "adminNote" | "createdAt" | "updatedAt"> {
   return {
     ...input,
+    selectedCollectionId: cleanOptional(input.selectedCollectionId),
+    selectedStyleId: cleanOptional(input.selectedStyleId),
+    selectedStyleName: cleanOptional(input.selectedStyleName),
+    selectedSizeOptionId: cleanOptional(input.selectedSizeOptionId),
+    selectedSizeLabel: cleanOptional(input.selectedSizeLabel),
+    selectedPrice: input.selectedPrice,
     deliveryAddress: input.deliveryAddress,
     confirmedDeliverySlot: cleanOptional(input.confirmedDeliverySlot),
     cakeMessage: cleanOptional(input.cakeMessage),

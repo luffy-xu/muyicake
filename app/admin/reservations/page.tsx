@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { AdminShell } from "@/components/admin-shell";
 import { AdminReservationList } from "@/components/admin-reservation-list";
 import { hasAdminSession } from "@/lib/admin-auth";
 
@@ -7,5 +8,9 @@ export default async function AdminReservationsPage() {
     redirect("/admin/login");
   }
 
-  return <AdminReservationList />;
+  return (
+    <AdminShell>
+      <AdminReservationList />
+    </AdminShell>
+  );
 }

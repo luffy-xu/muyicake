@@ -11,12 +11,14 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:seed": "node scripts/seed-catalog.mjs",
     "db:studio": "drizzle-kit studio",
     "pretest:e2e": "next build",
     "test:e2e": "PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
+    "@vercel/blob": "^2.5.0",
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.21.0",
     "next": "16.2.4",

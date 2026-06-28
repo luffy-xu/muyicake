@@ -1,4 +1,4 @@
-import { boolean, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, integer, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const customers = pgTable("customers", {
   whatsappKey: text("whatsapp_key").primaryKey(),
@@ -32,6 +32,12 @@ export const reservations = pgTable("reservations", {
   productName: text("product_name").notNull(),
   basePrice: integer("base_price").notNull(),
   currency: text("currency").default("SGD").notNull(),
+  selectedCollectionId: text("selected_collection_id"),
+  selectedStyleId: text("selected_style_id"),
+  selectedStyleName: text("selected_style_name"),
+  selectedSizeOptionId: text("selected_size_option_id"),
+  selectedSizeLabel: text("selected_size_label"),
+  selectedPrice: integer("selected_price"),
   whatsapp: text("whatsapp").notNull(),
   customerName: text("customer_name").notNull(),
   deliveryDate: text("delivery_date").notNull(),
@@ -63,5 +69,90 @@ export const reservations = pgTable("reservations", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const cakeCollections = pgTable("cake_collections", {
+  id: text("id").primaryKey(),
+  slug: text("slug").notNull().unique(),
+  titleZh: text("title_zh").notNull(),
+  titleEn: text("title_en").notNull(),
+  descriptionZh: text("description_zh"),
+  descriptionEn: text("description_en"),
+  type: text("type").notNull(),
+  coverImageUrl: text("cover_image_url"),
+  isActive: boolean("is_active").default(true).notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const cakeStyles = pgTable(
+  "cake_styles",
+  {
+    id: text("id").primaryKey(),
+    collectionId: text("collection_id").references(() => cakeCollections.id, {
+      onDelete: "cascade",
+    }),
+    slug: text("slug").notNull(),
+    nameZh: text("name_zh").notNull(),
+    nameEn: text("name_en").notNull(),
+    subtitleZh: text("subtitle_zh"),
+    subtitleEn: text("subtitle_en"),
+    descriptionZh: text("description_zh"),
+    descriptionEn: text("description_en"),
+    mainImageUrl: text("main_image_url"),
+    badgeZh: text("badge_zh"),
+    badgeEn: text("badge_en"),
+    isActive: boolean("is_active").default(true).notNull(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("cake_styles_collection_slug_unique").on(table.collectionId, table.slug)],
+);
+
+export const cakeStyleImages = pgTable("cake_style_images", {
+  id: text("id").primaryKey(),
+  styleId: text("style_id").references(() => cakeStyles.id, { onDelete: "cascade" }),
+  imageUrl: text("image_url").notNull(),
+  altZh: text("alt_zh"),
+  altEn: text("alt_en"),
+  imageType: text("image_type").notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const cakeStyleSections = pgTable("cake_style_sections", {
+  id: text("id").primaryKey(),
+  styleId: text("style_id").references(() => cakeStyles.id, { onDelete: "cascade" }),
+  sectionKey: text("section_key").notNull(),
+  titleZh: text("title_zh").notNull(),
+  titleEn: text("title_en").notNull(),
+  bodyZh: text("body_zh"),
+  bodyEn: text("body_en"),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const cakeSizeOptions = pgTable("cake_size_options", {
+  id: text("id").primaryKey(),
+  styleId: text("style_id").references(() => cakeStyles.id, { onDelete: "cascade" }),
+  sizeLabel: text("size_label").notNull(),
+  servingsZh: text("servings_zh"),
+  servingsEn: text("servings_en"),
+  price: integer("price").notNull(),
+  currency: text("currency").default("SGD").notNull(),
+  isDefault: boolean("is_default").default(false).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export type CustomerRow = typeof customers.$inferSelect;
 export type ReservationRow = typeof reservations.$inferSelect;
+export type CakeCollectionRow = typeof cakeCollections.$inferSelect;
+export type CakeStyleRow = typeof cakeStyles.$inferSelect;
+export type CakeStyleImageRow = typeof cakeStyleImages.$inferSelect;
+export type CakeStyleSectionRow = typeof cakeStyleSections.$inferSelect;
+export type CakeSizeOptionRow = typeof cakeSizeOptions.$inferSelect;

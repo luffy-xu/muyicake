@@ -39,8 +39,8 @@ export function AdminCustomerPersonas() {
   );
 
   return (
-    <main className="min-h-screen bg-[#FFF7EC] p-5">
-      <div className="mx-auto max-w-7xl">
+    <div>
+      <div className="max-w-7xl">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
           <div>
             <p className="text-sm font-semibold text-[#6B3F2A]">用户画像</p>
@@ -49,19 +49,12 @@ export function AdminCustomerPersonas() {
               使用 WhatsApp 号码识别用户，并汇总历史预订表现。
             </p>
           </div>
-          <div className="flex gap-2">
-            <Link
-              href="/admin/reservations"
-              className="rounded-full border border-[#E4B9A8] px-4 py-2 text-sm font-semibold text-[#6B3F2A]"
-            >
-              返回预订
-            </Link>
-            <form action="/api/admin/logout" method="post">
-              <button className="rounded-full bg-[#6B3F2A] px-4 py-2 text-sm font-semibold text-white">
-                退出
-              </button>
-            </form>
-          </div>
+          <Link
+            href="/admin/reservations"
+            className="rounded-full border border-[#E4B9A8] px-4 py-2 text-sm font-semibold text-[#6B3F2A]"
+          >
+            返回预订
+          </Link>
         </div>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
@@ -136,7 +129,7 @@ export function AdminCustomerPersonas() {
           ) : null}
         </div>
       </div>
-    </main>
+    </div>
   );
 }
 

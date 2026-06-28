@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { MessageCircle } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  CakeStyleDrawer,
+  type SelectedCakeStyle,
+} from "@/components/cake-style-drawer";
 import { ProductCard } from "@/components/product-card";
 import { ReservationForm } from "@/components/reservation-form";
 import { LanguageSwitcher } from "@/components/language-switcher";
@@ -22,14 +26,47 @@ export function ReservationPage({
   products: readonly Product[];
 }) {
   const [selectedCode, setSelectedCode] = useState(products[0]?.code ?? "");
+  const [catalogTypes, setCatalogTypes] = useState<Array<"qixi" | "birthday" | "custom">>([]);
+  const [availableCatalogTypes, setAvailableCatalogTypes] = useState<Array<"qixi" | "birthday" | "custom">>([]);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedCakeStyle, setSelectedCakeStyle] = useState<SelectedCakeStyle | null>(null);
   const selectedProduct = useMemo(
     () => products.find((product) => product.code === selectedCode) ?? products[0],
     [products, selectedCode],
   );
 
+  useEffect(() => {
+    const types = mode === "qixi" ? "qixi" : "birthday,custom";
+    fetch(`/api/catalog/collections?locale=${locale}&type=${types}`)
+      .then((response) => response.json() as Promise<{ collections: Array<{ type: "qixi" | "birthday" | "custom" }> }>)
+      .then((payload) => {
+        setAvailableCatalogTypes([...new Set(payload.collections.map((collection) => collection.type))]);
+      })
+      .catch(() => setAvailableCatalogTypes([]));
+  }, [locale, mode]);
+
   function selectProduct(product: Product) {
     setSelectedCode(product.code);
+    const types = product.category === "qixi" ? ["qixi" as const] : [product.category];
+    const hasCatalog = types.some((type) => availableCatalogTypes.includes(type));
+    if (hasCatalog) {
+      setCatalogTypes(types);
+      setDrawerOpen(true);
+      return;
+    }
+    setSelectedCakeStyle(null);
     document.getElementById("reservation-form")?.scrollIntoView({ block: "start" });
+  }
+
+  function selectCakeStyle(selection: SelectedCakeStyle) {
+    setSelectedCakeStyle(selection);
+    document.getElementById("reservation-form")?.scrollIntoView({ block: "start" });
+  }
+
+  function reopenDrawer() {
+    const type = selectedProduct.category === "qixi" ? "qixi" : selectedProduct.category;
+    setCatalogTypes([type]);
+    setDrawerOpen(true);
   }
 
   return (
@@ -122,6 +159,8 @@ export function ReservationPage({
           dictionary={dictionary}
           mode={mode}
           selectedProduct={selectedProduct}
+          selectedCakeStyle={selectedCakeStyle}
+          onChangeCakeStyle={availableCatalogTypes.length ? reopenDrawer : undefined}
         />
       </section>
 
@@ -142,6 +181,15 @@ export function ReservationPage({
           {dictionary.reservation.stickyCta}
         </button>
       </div>
+      <CakeStyleDrawer
+        key={`${drawerOpen}-${catalogTypes.join("-")}-${locale}`}
+        open={drawerOpen}
+        locale={locale}
+        collectionTypes={catalogTypes}
+        dictionary={dictionary}
+        onClose={() => setDrawerOpen(false)}
+        onSelect={selectCakeStyle}
+      />
     </main>
   );
 }

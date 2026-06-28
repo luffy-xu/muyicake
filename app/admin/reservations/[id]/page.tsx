@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { AdminShell } from "@/components/admin-shell";
 import { AdminReservationDetail } from "@/components/admin-reservation-detail";
 import { hasAdminSession } from "@/lib/admin-auth";
 
@@ -12,5 +13,9 @@ export default async function AdminReservationDetailPage({
   }
 
   const { id } = await params;
-  return <AdminReservationDetail id={id} />;
+  return (
+    <AdminShell>
+      <AdminReservationDetail id={id} />
+    </AdminShell>
+  );
 }

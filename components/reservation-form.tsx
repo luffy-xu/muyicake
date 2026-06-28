@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Send } from "lucide-react";
+import type { SelectedCakeStyle } from "@/components/cake-style-drawer";
 import type { Locale, getDictionary } from "@/lib/i18n";
 import type { Product } from "@/lib/products";
 import {
@@ -32,11 +33,15 @@ export function ReservationForm({
   dictionary,
   mode,
   selectedProduct,
+  selectedCakeStyle,
+  onChangeCakeStyle,
 }: {
   locale: Locale;
   dictionary: ReturnType<typeof getDictionary>;
   mode: "qixi" | "custom";
   selectedProduct: Product;
+  selectedCakeStyle?: SelectedCakeStyle | null;
+  onChangeCakeStyle?: () => void;
 }) {
   const [success, setSuccess] = useState<Reservation | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -65,6 +70,12 @@ export function ReservationForm({
       productName: selectedProduct.name,
       basePrice: selectedProduct.basePrice,
       currency: "SGD",
+      selectedCollectionId: selectedCakeStyle?.selectedCollectionId ?? "",
+      selectedStyleId: selectedCakeStyle?.selectedStyleId ?? "",
+      selectedStyleName: selectedCakeStyle?.selectedStyleName ?? "",
+      selectedSizeOptionId: selectedCakeStyle?.selectedSizeOptionId ?? "",
+      selectedSizeLabel: selectedCakeStyle?.selectedSizeLabel ?? "",
+      selectedPrice: selectedCakeStyle?.selectedPrice,
       isInterestedInMembership: false,
       website: "",
       whatsapp: "65",
@@ -91,6 +102,15 @@ export function ReservationForm({
       landingPath: "",
     },
   });
+
+  useEffect(() => {
+    setValue("selectedCollectionId", selectedCakeStyle?.selectedCollectionId ?? "");
+    setValue("selectedStyleId", selectedCakeStyle?.selectedStyleId ?? "");
+    setValue("selectedStyleName", selectedCakeStyle?.selectedStyleName ?? "");
+    setValue("selectedSizeOptionId", selectedCakeStyle?.selectedSizeOptionId ?? "");
+    setValue("selectedSizeLabel", selectedCakeStyle?.selectedSizeLabel ?? "");
+    setValue("selectedPrice", selectedCakeStyle?.selectedPrice);
+  }, [selectedCakeStyle, setValue]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -145,6 +165,12 @@ export function ReservationForm({
         <input type="hidden" {...register("productName")} />
         <input type="hidden" {...register("basePrice", { valueAsNumber: true })} />
         <input type="hidden" {...register("currency")} />
+        <input type="hidden" {...register("selectedCollectionId")} />
+        <input type="hidden" {...register("selectedStyleId")} />
+        <input type="hidden" {...register("selectedStyleName")} />
+        <input type="hidden" {...register("selectedSizeOptionId")} />
+        <input type="hidden" {...register("selectedSizeLabel")} />
+        <input type="hidden" {...register("selectedPrice")} />
         <input type="hidden" {...register("utmSource")} />
         <input type="hidden" {...register("utmMedium")} />
         <input type="hidden" {...register("utmCampaign")} />
@@ -158,6 +184,31 @@ export function ReservationForm({
           <p className="text-sm font-semibold text-[#D8A95D]">{dictionary.reservation.form.selectedCake}</p>
           <p className="mt-1 text-lg font-semibold">{dictionary.products[selectedProduct.code].name}</p>
           <p className="text-[#E97796]">{selectedProduct.priceLabel}</p>
+          {selectedCakeStyle ? (
+            <div className="mt-3 rounded-xl bg-[#FFFCF7] p-3 text-sm leading-6">
+              <p>
+                <span className="font-semibold text-[#6B3F2A]">{dictionary.catalog.selectedStyle}: </span>
+                {selectedCakeStyle.selectedStyleName}
+              </p>
+              <p>
+                <span className="font-semibold text-[#6B3F2A]">{dictionary.catalog.selectedSize}: </span>
+                {selectedCakeStyle.selectedSizeLabel}
+              </p>
+              <p>
+                <span className="font-semibold text-[#6B3F2A]">{dictionary.catalog.selectedPrice}: </span>
+                S${selectedCakeStyle.selectedPrice}
+              </p>
+            </div>
+          ) : null}
+          {onChangeCakeStyle ? (
+            <button
+              type="button"
+              onClick={onChangeCakeStyle}
+              className="mt-3 rounded-full border border-[#E4B9A8] px-4 py-2 text-sm font-semibold text-[#6B3F2A]"
+            >
+              {dictionary.catalog.changeSelection}
+            </button>
+          ) : null}
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">

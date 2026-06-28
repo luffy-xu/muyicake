@@ -52,8 +52,8 @@ export function AdminReservationDetail({ id }: { id: string }) {
   }, [reservation]);
 
   return (
-    <main className="min-h-screen bg-[#FFF7EC] p-5">
-      <div className="mx-auto max-w-6xl">
+    <div>
+      <div className="max-w-6xl">
         <Link href="/admin/reservations" className="text-sm font-semibold text-[#6B3F2A]">
           返回预订列表
         </Link>
@@ -89,6 +89,9 @@ export function AdminReservationDetail({ id }: { id: string }) {
                   ["类型", reservation.reservationCategory],
                   ["蛋糕", reservation.productName],
                   ["基础报价", `S$${reservation.basePrice}`],
+                  ["已选款式", reservation.selectedStyleName || "-"],
+                  ["已选尺寸", reservation.selectedSizeLabel || "-"],
+                  ["已选价格", reservation.selectedPrice ? `S$${reservation.selectedPrice}` : "-"],
                   ["配送日期", reservation.deliveryDate],
                   ["配送区域", reservation.deliveryArea],
                   ["配送地址", reservation.deliveryAddress || "-"],
@@ -167,7 +170,7 @@ export function AdminReservationDetail({ id }: { id: string }) {
           </>
         ) : null}
       </div>
-    </main>
+    </div>
   );
 }
 

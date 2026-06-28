@@ -46,6 +46,13 @@ export function SuccessModal({
             <strong className="text-[#2B1E1A]">{reservation.id}</strong>
           </p>
           <p>{dictionary.reservation.success.product}: {reservation.productName}</p>
+          {reservation.selectedStyleName ? (
+            <p>
+              {dictionary.catalog.selectedStyle}: {reservation.selectedStyleName}
+              {reservation.selectedSizeLabel ? ` / ${reservation.selectedSizeLabel}` : ""}
+              {reservation.selectedPrice ? ` / S$${reservation.selectedPrice}` : ""}
+            </p>
+          ) : null}
           <p>{dictionary.reservation.success.delivery}: {reservation.deliveryDate}, {reservation.deliveryArea}</p>
         </div>
         <p className="mt-5 leading-7 text-[#7A6258]">

@@ -91,8 +91,8 @@ export function AdminReservationList() {
   }
 
   return (
-    <main className="min-h-screen bg-[#FFF7EC] p-5">
-      <div className="mx-auto max-w-7xl">
+    <div>
+      <div className="max-w-7xl">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
           <div>
             <p className="text-sm font-semibold text-[#6B3F2A]">后台管理</p>
@@ -108,11 +108,6 @@ export function AdminReservationList() {
             >
               用户画像
             </Link>
-            <form action="/api/admin/logout" method="post">
-              <button className="rounded-full bg-[#6B3F2A] px-4 py-2 text-sm font-semibold text-white">
-                退出
-              </button>
-            </form>
           </div>
         </div>
 
@@ -168,7 +163,16 @@ export function AdminReservationList() {
                   <td className="px-4 py-3">{reservation.status}</td>
                   <td className="px-4 py-3">{reservation.whatsapp}</td>
                   <td className="px-4 py-3">{reservation.reservationCategory}</td>
-                  <td className="px-4 py-3">{reservation.productName}</td>
+                  <td className="px-4 py-3">
+                    <span className="block">{reservation.productName}</span>
+                    {reservation.selectedStyleName ? (
+                      <span className="mt-1 block text-xs text-[#7A6258]">
+                        {reservation.selectedStyleName}
+                        {reservation.selectedSizeLabel ? ` · ${reservation.selectedSizeLabel}` : ""}
+                        {reservation.selectedPrice ? ` · S$${reservation.selectedPrice}` : ""}
+                      </span>
+                    ) : null}
+                  </td>
                   <td className="px-4 py-3">
                     {reservation.utmSource || reservation.referrer || "-"}
                   </td>
@@ -216,7 +220,7 @@ export function AdminReservationList() {
         onClose={() => setActiveReservation(null)}
         onSaved={replaceReservation}
       />
-    </main>
+    </div>
   );
 }
 

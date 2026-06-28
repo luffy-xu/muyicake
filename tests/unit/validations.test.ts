@@ -36,6 +36,23 @@ describe("reservationCreateSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("accepts selected catalog style fields", () => {
+    const result = reservationCreateSchema.safeParse({
+      ...basePayload,
+      selectedCollectionId: "col_qixi_memory",
+      selectedStyleId: "style_qixi_memory_blush",
+      selectedStyleName: "粉色回忆七夕蛋糕",
+      selectedSizeOptionId: "size_qixi_memory_6",
+      selectedSizeLabel: '6"',
+      selectedPrice: 117,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.selectedStyleName).toBe("粉色回忆七夕蛋糕");
+      expect(result.data.selectedPrice).toBe(117);
+    }
+  });
+
   it("rejects mismatched product details", () => {
     const result = reservationCreateSchema.safeParse({
       ...basePayload,
