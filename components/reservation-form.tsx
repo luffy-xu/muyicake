@@ -37,7 +37,7 @@ export function ReservationForm({
 }: {
   locale: Locale;
   dictionary: ReturnType<typeof getDictionary>;
-  mode: "qixi" | "custom";
+  mode: "qixi" | "custom" | "birthday";
   selectedProduct: Product;
   selectedCakeStyle?: SelectedCakeStyle | null;
   onChangeCakeStyle?: () => void;

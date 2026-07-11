@@ -132,7 +132,7 @@ export function HomePage({
               {locale === "en" ? "Choose your cake type" : "选择你的蛋糕类型"}
             </h2>
           </div>
-          <div className="flex flex-col gap-[14px] md:grid md:grid-cols-2">
+          <div className="flex flex-col gap-[14px] md:grid md:grid-cols-3">
             <EntryCard
               href={`${prefix}/qixi`}
               emoji="🌹"
@@ -145,6 +145,18 @@ export function HomePage({
               subtitle={locale === "en" ? "S$77 / S$117 · Cake + Frame + Photo" : "S$77 / S$117 · 蛋糕 + 相框 + 照片"}
               cta={dictionary.home.qixiCta}
               ctaStyle="background:#E97796;color:#fff;border:none"
+            />
+            <EntryCard
+              href={`${prefix}/birthday`}
+              emoji="📖"
+              emojiGradient="linear-gradient(135deg,#D9C7F2,#8E7BC0)"
+              emojiShadow="rgba(142,123,192,0.28)"
+              cardGradient="linear-gradient(135deg,#F8F5FF,#FFF2F6)"
+              border="rgba(142,123,192,0.22)"
+              title={dictionary.home.storybookTitle}
+              subtitle={dictionary.home.storybookSubtitle}
+              cta={dictionary.home.storybookCta}
+              ctaStyle="background:#2B1E1A;color:#FBF3E7;border:none"
             />
             <EntryCard
               href={`${prefix}/custom`}
