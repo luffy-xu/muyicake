@@ -19,12 +19,12 @@ test.afterAll(async () => {
     `;
     await sql`
       delete from reservations
-      where customer_name in ('Qixi Customer', 'Birthday Customer')
+      where customer_name in ('Qixi Customer', 'Birthday Customer', 'Storybook Customer')
          or customer_name like 'Drawer Customer %'
     `;
     await sql`
       delete from customers
-      where name in ('Qixi Customer', 'Birthday Customer')
+      where name in ('Qixi Customer', 'Birthday Customer', 'Storybook Customer')
          or name like 'Drawer Customer %'
     `;
   } finally {
@@ -108,6 +108,43 @@ test("English custom birthday reservation flow", async ({ request }) => {
   expect(payload.reservation.cakeMessage).toBe("Happy birthday, Mama");
   expect(payload.reservation.locale).toBe("en");
   expect(payload.reservation.utmCampaign).toBe("qixi_preheat");
+});
+
+test("Birthday Storybook chapter reservation flow", async ({ request }) => {
+  const page = await request.get("/birthday");
+  const text = await page.text();
+  expect(text).toContain("Hot Wheels");
+
+  const response = await request.post("/api/reservations", {
+    data: {
+      locale: "zh",
+      sourcePage: "birthday",
+      reservationCategory: "birthday",
+      productCode: "storybook_hotwheels",
+      productName: "Hot Wheels Birthday Storybook",
+      basePrice: 157,
+      currency: "SGD",
+      whatsapp: "+65 9345 6789",
+      customerName: "Storybook Customer",
+      deliveryDate: "2026-08-21",
+      deliveryAddress: "Blk 456 Bishan St 22 #05-12, Singapore 570456",
+      selectedCollectionId: "col_birthday_storybook_boy",
+      selectedStyleId: "style_storybook_hotwheels",
+      selectedStyleName: "风火轮赛车",
+      selectedSizeOptionId: "size_storybook_hotwheels_set",
+      selectedSizeLabel: "Full party set",
+      selectedPrice: 157,
+    },
+  });
+
+  expect(response.status()).toBe(201);
+  const payload = (await response.json()) as {
+    reservation: { id: string; productCode: string; selectedCollectionId: string; selectedPrice: number };
+  };
+  expect(payload.reservation.id).toMatch(/^MUYI-\d{8}-\d{4}$/);
+  expect(payload.reservation.productCode).toBe("storybook_hotwheels");
+  expect(payload.reservation.selectedCollectionId).toBe("col_birthday_storybook_boy");
+  expect(payload.reservation.selectedPrice).toBe(157);
 });
 
 test("Admin reservation management flow", async ({ request }) => {

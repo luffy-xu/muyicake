@@ -2,7 +2,7 @@
 
 ## Devices
 
-- [ ] iPhone Safari loads `/`, `/qixi`, `/custom`, `/en`, `/en/qixi`, `/en/custom`.
+- [ ] iPhone Safari loads `/`, `/qixi`, `/custom`, `/birthday`, `/en`, `/en/qixi`, `/en/custom`, `/en/birthday`.
 - [ ] Android Chrome loads the same routes.
 - [ ] Mobile sticky CTA remains visible and does not cover form submission feedback.
 
@@ -12,6 +12,8 @@
 - [ ] English Qixi reservation submits successfully from `/en/qixi`.
 - [ ] Chinese custom reservation submits successfully from `/custom`.
 - [ ] English custom reservation submits successfully from `/en/custom`.
+- [ ] Birthday Storybook chapter reservation submits successfully from `/birthday` (boy and girl tabs).
+- [ ] English Birthday Storybook chapter reservation submits successfully from `/en/birthday`.
 - [ ] Success modal explains WhatsApp follow-up and no online payment.
 - [ ] WhatsApp business link opens with the correct language template.
 - [ ] No cart or payment step appears.
@@ -39,6 +41,7 @@
 - [ ] Preview URL loads all public routes.
 - [ ] Required env vars are configured in Vercel.
 - [ ] `npm run db:migrate` has been run against the production database.
+- [ ] `npm run db:seed` has been run against the production database (catalog collections/styles, including `birthday-boy`/`birthday-girl`, will not exist otherwise).
 - [ ] `POST /api/reservations` works on preview.
 - [ ] Admin login works on preview.
 - [ ] Runtime logs have no `DATABASE_URL` or auth secret errors.
