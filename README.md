@@ -18,9 +18,11 @@ This is not an ecommerce checkout. The app has no online payment, no cart, and n
 - `/` - Chinese home page
 - `/qixi` - Chinese Qixi reservation page
 - `/custom` - Chinese birthday/custom reservation page
+- `/birthday` - Chinese Birthday Storybook (10 themed chapters, 5 for boys / 5 for girls)
 - `/en` - English home page
 - `/en/qixi` - English Qixi reservation page
 - `/en/custom` - English birthday/custom reservation page
+- `/en/birthday` - English Birthday Storybook
 - `/admin/login` - admin login
 - `/admin/reservations` - admin reservation list
 - `/admin/reservations/[id]` - admin reservation detail
@@ -112,12 +114,14 @@ Chinese is the default language:
 - `/`
 - `/qixi`
 - `/custom`
+- `/birthday`
 
 English routes:
 
 - `/en`
 - `/en/qixi`
 - `/en/custom`
+- `/en/birthday`
 
 The language switcher preserves equivalent routes, and reservations store `locale` as `zh` or `en`.
 
@@ -160,6 +164,8 @@ DATABASE_URL="postgres://..." npm run db:migrate
 - `/en/qixi`
 - `/custom`
 - `/en/custom`
+- `/birthday`
+- `/en/birthday`
 - `/admin/login`
 - `/admin/reservations`
 - `POST /api/reservations`

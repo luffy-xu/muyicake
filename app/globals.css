@@ -11,7 +11,8 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-display: var(--font-playfair);
-  --font-chinese-serif: "Noto Serif SC", "Source Han Serif SC", "Hiragino Mincho Pro", STSong, serif;
+  --font-chinese-serif: var(--font-noto-serif-sc), "Noto Serif SC", "Source Han Serif SC", "Hiragino Mincho Pro", STSong, serif;
+  --font-chinese-sans: var(--font-noto-sans-sc), "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
 body {
@@ -65,6 +66,21 @@ body {
 @keyframes glowPulse {
   0%, 100% { box-shadow: 0 4px 14px rgba(233, 119, 150, 0.38); }
   50% { box-shadow: 0 6px 24px rgba(233, 119, 150, 0.6); }
+}
+
+@keyframes muMarquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes muFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-9px) rotate(2.5deg); }
+}
+
+@keyframes muFloatB {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(7px) rotate(-3deg); }
 }
 
 button,

@@ -21,7 +21,7 @@ export const deliverySlots = [
 ] as const;
 
 export const reservationCategorySchema = z.enum(["qixi", "birthday", "custom"]);
-export const sourcePageSchema = z.enum(["home", "qixi", "custom"]);
+export const sourcePageSchema = z.enum(["home", "qixi", "custom", "birthday"]);
 export const statusSchema = z.enum(statusValues);
 export const localeSchema = z.enum(["zh", "en"]);
 export const catalogCollectionTypeSchema = z.enum(["qixi", "birthday", "custom"]);
