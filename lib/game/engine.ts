@@ -1,27 +1,41 @@
 // Pure rules engine for the car-edition property trading game.
-// Implements the classic official rules: GO salary, doubles (3 in a row → jail),
-// jail (fine / card / doubles, forced fine on 3rd failure), buy-or-auction,
-// monopoly double rent, railroads, utilities, even building with a limited
-// house/hotel supply, mortgages with 10% interest, card decks, trading,
+// Implements the classic rules plus the Mega Edition additions: GO salary,
+// doubles (3 in a row → jail), jail (fine / card / doubles, forced fine on 3rd
+// failure), buy-or-auction, majority (×2) and full-set (×3) unimproved rent,
+// the speed die (number / Turbo / Bus faces, triples move anywhere), bus
+// tickets, the Car Auction and Birthday Gift spaces, train depots (ERP
+// gantries), three utilities, even building up to skyscrapers (auto towers)
+// with a limited supply, mortgages with 10% interest, card decks, trading,
 // debts and bankruptcy (to a player or to the bank with auctions).
 
 import {
+  BIRTHDAY_GIFT,
   BOARD,
+  BOARD_SIZE,
+  BUS_TICKETS,
   CHANCE_CARDS,
   CHEST_CARDS,
+  DEPOT_COST,
   GO_SALARY,
+  HOTEL_LEVEL,
   JAIL_FINE,
   JAIL_POS,
   RAILROADS,
+  SKYSCRAPER_LEVEL,
+  SPEED_FACES,
   STARTING_CASH,
   TOTAL_HOTELS,
   TOTAL_HOUSES,
+  TOTAL_SKYSCRAPERS,
   UTILITIES,
+  busDestinations,
   groupMembers,
   groupOf,
   isOwnable,
   priceOf,
+  type BusTicket,
   type CardEffect,
+  type Speed,
   type TokenId,
 } from "@/lib/game/board";
 
@@ -38,9 +52,13 @@ export type Player = {
   jailTurns: number;
   jailCards: Deck[];
   bankrupt: boolean;
+  // Has passed GO at least once: from then on the speed die is rolled too.
+  lapped: boolean;
+  busTickets: BusTicket[];
 };
 
-export type Deed = { owner: number | null; houses: number; mortgaged: boolean };
+// `houses` is the building level (see HOTEL_LEVEL / SKYSCRAPER_LEVEL); `depot` is a railroad's train depot.
+export type Deed = { owner: number | null; houses: number; mortgaged: boolean; depot?: boolean };
 
 export type Debt = { debtor: number; creditor: number | "bank"; amount: number };
 
@@ -60,6 +78,11 @@ export type Phase =
     }
   | { t: "debt"; resume: Phase }
   | { t: "postRoll" }
+  | { t: "turbo" }
+  | { t: "busMove" }
+  | { t: "pickSpace" }
+  | { t: "auctionPick" }
+  | { t: "birthday" }
   | { t: "over"; winner: number };
 
 export type LogKey =
@@ -92,7 +115,14 @@ export type LogKey =
   | "trade"
   | "collected"
   | "paid"
-  | "winner";
+  | "winner"
+  | "triples"
+  | "turbo"
+  | "busTicket"
+  | "busExpire"
+  | "busUsed"
+  | "depotBuilt"
+  | "depotSold";
 
 export type LogEntry = {
   k: LogKey;
@@ -101,12 +131,16 @@ export type LogEntry = {
   s?: number;
   a?: number;
   d?: Dice;
+  sp?: Speed;
   deck?: Deck;
   c?: number;
 };
 
+// Bumped when saved games can no longer be replayed (v2: 52-space Mega board).
+export const GAME_VERSION = 2;
+
 export type GameState = {
-  version: 1;
+  version: typeof GAME_VERSION;
   players: Player[];
   current: number;
   deeds: Record<number, Deed>;
@@ -115,7 +149,11 @@ export type GameState = {
   doublesCount: number;
   rollAgain: boolean;
   lastDice: Dice | null;
+  lastSpeed: Speed | null;
+  // A Turbo face was rolled: after resolving the space, advance to the next unowned car.
+  pendingTurbo: boolean;
   decks: Record<Deck, number[]>;
+  busDeck: BusTicket[];
   log: LogEntry[];
   // Total entries ever logged (the log itself is capped); lets the UI animate new entries.
   logSeq?: number;
@@ -133,7 +171,15 @@ export type TradeOffer = {
 };
 
 export type Action =
-  | { type: "ROLL"; dice: Dice }
+  | { type: "ROLL"; dice: Dice; speed?: Speed }
+  | { type: "TURBO" }
+  | { type: "BUS_MOVE"; steps: number }
+  | { type: "PICK_SPACE"; pos: number }
+  | { type: "AUCTION_PICK"; pos: number }
+  | { type: "BIRTHDAY"; choice: "cash" | "bus" }
+  | { type: "USE_BUS"; pos: number; dice: Dice }
+  | { type: "BUILD_DEPOT"; player: number; pos: number }
+  | { type: "SELL_DEPOT"; player: number; pos: number }
   | { type: "PAY_JAIL" }
   | { type: "USE_JAIL_CARD" }
   | { type: "BUY" }
@@ -167,13 +213,17 @@ export function rollDice(rng: Rng = Math.random): Dice {
   return [1 + Math.floor(rng() * 6), 1 + Math.floor(rng() * 6)];
 }
 
+export function rollSpeed(rng: Rng = Math.random): Speed {
+  return SPEED_FACES[Math.floor(rng() * SPEED_FACES.length)];
+}
+
 export function createGame(players: { name: string; token: TokenId }[], rng: Rng = Math.random): GameState {
   const deeds: Record<number, Deed> = {};
   BOARD.forEach((_, i) => {
     if (isOwnable(i)) deeds[i] = { owner: null, houses: 0, mortgaged: false };
   });
   return {
-    version: 1,
+    version: GAME_VERSION,
     players: players.map((pl, id) => ({
       id,
       name: pl.name,
@@ -184,6 +234,8 @@ export function createGame(players: { name: string; token: TokenId }[], rng: Rng
       jailTurns: 0,
       jailCards: [],
       bankrupt: false,
+      lapped: false,
+      busTickets: [],
     })),
     current: 0,
     deeds,
@@ -192,10 +244,13 @@ export function createGame(players: { name: string; token: TokenId }[], rng: Rng
     doublesCount: 0,
     rollAgain: false,
     lastDice: null,
+    lastSpeed: null,
+    pendingTurbo: false,
     decks: {
       chance: shuffle(CHANCE_CARDS.map((_, i) => i), rng),
       chest: shuffle(CHEST_CARDS.map((_, i) => i), rng),
     },
+    busDeck: shuffle(BUS_TICKETS, rng),
     log: [],
     logSeq: 0,
   };
@@ -205,14 +260,20 @@ export function createGame(players: { name: string; token: TokenId }[], rng: Rng
 
 export function housesInBank(s: GameState) {
   let used = 0;
-  for (const d of Object.values(s.deeds)) if (d.houses > 0 && d.houses < 5) used += d.houses;
+  for (const d of Object.values(s.deeds)) if (d.houses > 0 && d.houses < HOTEL_LEVEL) used += d.houses;
   return TOTAL_HOUSES - used;
 }
 
 export function hotelsInBank(s: GameState) {
   let used = 0;
-  for (const d of Object.values(s.deeds)) if (d.houses === 5) used += 1;
+  for (const d of Object.values(s.deeds)) if (d.houses === HOTEL_LEVEL) used += 1;
   return TOTAL_HOTELS - used;
+}
+
+export function skyscrapersInBank(s: GameState) {
+  let used = 0;
+  for (const d of Object.values(s.deeds)) if (d.houses === SKYSCRAPER_LEVEL) used += 1;
+  return TOTAL_SKYSCRAPERS - used;
 }
 
 export function ownsGroup(s: GameState, player: number, pos: number) {
@@ -222,9 +283,21 @@ export function ownsGroup(s: GameState, player: number, pos: number) {
 }
 
 export function groupHasBuildings(s: GameState, pos: number) {
+  if (s.deeds[pos]?.depot) return true;
   const group = groupOf(pos);
   if (!group) return false;
   return groupMembers(group).some((m) => s.deeds[m].houses > 0);
+}
+
+// Mega Edition: owning all but one of a colour set doubles unimproved rent; owning all of it triples it.
+export function setRentMultiplier(s: GameState, player: number, pos: number) {
+  const group = groupOf(pos);
+  if (!group) return 1;
+  const members = groupMembers(group);
+  const owned = members.filter((m) => s.deeds[m].owner === player).length;
+  if (owned === members.length) return 3;
+  if (owned === members.length - 1) return 2;
+  return 1;
 }
 
 export function mortgageValue(pos: number) {
@@ -246,17 +319,17 @@ export function rentFor(s: GameState, pos: number, diceTotal: number, mode: "nor
   const owner = deed.owner;
   if (space.kind === "property") {
     if (deed.houses > 0) return space.rent[deed.houses];
-    return ownsGroup(s, owner, pos) ? space.rent[0] * 2 : space.rent[0];
+    return space.rent[0] * setRentMultiplier(s, owner, pos);
   }
   if (space.kind === "railroad") {
     const count = RAILROADS.filter((r) => s.deeds[r].owner === owner).length;
-    const rent = 25 * 2 ** (count - 1);
+    const rent = 25 * 2 ** (count - 1) * (deed.depot ? 2 : 1);
     return mode === "card" ? rent * 2 : rent;
   }
   if (space.kind === "utility") {
     if (mode === "card") return diceTotal * 10;
     const count = UTILITIES.filter((u) => s.deeds[u].owner === owner).length;
-    return diceTotal * (count === 2 ? 10 : 4);
+    return diceTotal * (count >= 3 ? 20 : count === 2 ? 10 : 4);
   }
   return 0;
 }
@@ -265,14 +338,39 @@ export function canBuild(s: GameState, player: number, pos: number) {
   const space = BOARD[pos];
   const deed = s.deeds[pos];
   if (space?.kind !== "property" || !deed || deed.owner !== player) return false;
-  if (deed.houses >= 5) return false;
+  if (deed.houses >= SKYSCRAPER_LEVEL) return false;
   if (!ownsGroup(s, player, pos)) return false;
   const members = groupMembers(space.group);
   if (members.some((m) => s.deeds[m].mortgaged)) return false;
   const min = Math.min(...members.map((m) => s.deeds[m].houses));
   if (deed.houses !== min) return false;
   if (s.players[player].cash < space.houseCost) return false;
-  return deed.houses === 4 ? hotelsInBank(s) > 0 : housesInBank(s) > 0;
+  if (deed.houses === HOTEL_LEVEL) return skyscrapersInBank(s) > 0;
+  return deed.houses === HOTEL_LEVEL - 1 ? hotelsInBank(s) > 0 : housesInBank(s) > 0;
+}
+
+export function canBuildDepot(s: GameState, player: number, pos: number) {
+  const deed = s.deeds[pos];
+  if (BOARD[pos]?.kind !== "railroad" || !deed || deed.owner !== player) return false;
+  return !deed.depot && !deed.mortgaged && s.players[player].cash >= DEPOT_COST;
+}
+
+export function canSellDepot(s: GameState, player: number, pos: number) {
+  const deed = s.deeds[pos];
+  return BOARD[pos]?.kind === "railroad" && !!deed && deed.owner === player && !!deed.depot;
+}
+
+// New building level after selling one step from `level` (showrooms and towers break down if supply allows).
+function sellLevel(s: GameState, level: number) {
+  if (level === SKYSCRAPER_LEVEL) return hotelsInBank(s) > 0 ? HOTEL_LEVEL : Math.min(HOTEL_LEVEL - 1, housesInBank(s));
+  if (level === HOTEL_LEVEL) return Math.min(HOTEL_LEVEL - 1, housesInBank(s));
+  return level - 1;
+}
+
+export function unownedDeeds(s: GameState) {
+  return Object.keys(s.deeds)
+    .map(Number)
+    .filter((pos) => s.deeds[pos].owner === null);
 }
 
 export function canSellHouse(s: GameState, player: number, pos: number) {
@@ -303,6 +401,7 @@ export function netWorth(s: GameState, player: number) {
     const space = BOARD[pos];
     total += d.mortgaged ? 0 : mortgageValue(pos);
     if (space.kind === "property") total += (d.houses * space.houseCost) / 2;
+    if (d.depot) total += DEPOT_COST / 2;
   }
   return total;
 }
@@ -347,6 +446,7 @@ function charge(s: Draft, from: number, to: number | "bank", amount: number) {
 
 function afterTurnPhase(s: Draft): Phase {
   const pl = s.players[s.current];
+  if (s.pendingTurbo && !pl.inJail && !pl.bankrupt) return { t: "turbo" };
   return s.rollAgain && !pl.inJail && !pl.bankrupt ? { t: "roll" } : { t: "postRoll" };
 }
 
@@ -356,6 +456,7 @@ function sendToJail(s: Draft, player: number) {
   pl.inJail = true;
   pl.jailTurns = 0;
   s.rollAgain = false;
+  s.pendingTurbo = false;
   log(s, { k: "toJail", p: player });
 }
 
@@ -363,6 +464,7 @@ function moveTo(s: Draft, player: number, to: number, collectGo: boolean) {
   const pl = s.players[player];
   if (collectGo && to < pl.pos) {
     pl.cash += GO_SALARY;
+    pl.lapped = true;
     log(s, { k: "passGo", p: player, a: GO_SALARY });
   }
   pl.pos = to;
@@ -407,10 +509,59 @@ function land(s: Draft, diceTotal: number, mode: "normal" | "card" = "normal", c
     case "goToJail":
       sendToJail(s, player);
       break;
+    case "auction": {
+      if (unownedDeeds(s).length) {
+        s.phase = { t: "auctionPick" };
+        return;
+      }
+      // Everything is owned: advance to the car with the highest rent owed to someone else.
+      const target = Object.keys(s.deeds)
+        .map(Number)
+        .filter((p) => s.deeds[p].owner !== player)
+        .sort((a, b) => rentFor(s, b, diceTotal) - rentFor(s, a, diceTotal))[0];
+      if (target !== undefined && rentFor(s, target, diceTotal) > 0) {
+        moveTo(s, player, target, true);
+        land(s, diceTotal);
+        return;
+      }
+      break;
+    }
+    case "busTicket":
+      drawBusTicket(s, player);
+      break;
+    case "birthday":
+      s.phase = { t: "birthday" };
+      return;
     default:
       break;
   }
   s.phase = afterTurnPhase(s);
+}
+
+function drawBusTicket(s: Draft, player: number) {
+  const ticket = s.busDeck.shift();
+  if (ticket === undefined) return;
+  s.players[player].busTickets.push(ticket);
+  log(s, { k: "busTicket", p: player });
+  if (ticket === 1) {
+    // "All other bus tickets expire": everyone else's tickets go back under the deck.
+    for (const other of s.players) {
+      if (other.id === player || !other.busTickets.length) continue;
+      s.busDeck.push(...other.busTickets);
+      other.busTickets = [];
+    }
+    log(s, { k: "busExpire", p: player });
+  }
+}
+
+// Turbo (Mr. Monopoly): advance to the next unowned car; if all are owned, to the next one you owe rent on.
+function turboTarget(s: GameState, player: number) {
+  const from = s.players[player].pos;
+  const ahead = Array.from({ length: BOARD_SIZE - 1 }, (_, i) => (from + 1 + i) % BOARD_SIZE).filter(isOwnable);
+  return (
+    ahead.find((pos) => s.deeds[pos].owner === null) ??
+    ahead.find((pos) => s.deeds[pos].owner !== player && !s.deeds[pos].mortgaged)
+  );
 }
 
 function applyCard(s: Draft, deck: Deck, cardIndex: number, dice: Dice) {
@@ -443,7 +594,7 @@ function applyCard(s: Draft, deck: Deck, cardIndex: number, dice: Dice) {
       return;
     }
     case "back":
-      pl.pos = (pl.pos - effect.spaces + 40) % 40;
+      pl.pos = (pl.pos - effect.spaces + BOARD_SIZE) % BOARD_SIZE;
       land(s, diceTotal);
       return;
     case "jail":
@@ -461,7 +612,7 @@ function applyCard(s: Draft, deck: Deck, cardIndex: number, dice: Dice) {
       let cost = 0;
       for (const d of Object.values(s.deeds)) {
         if (d.owner !== player) continue;
-        cost += d.houses === 5 ? effect.hotel : d.houses * effect.house;
+        cost += d.houses >= HOTEL_LEVEL ? effect.hotel : d.houses * effect.house;
       }
       log(s, { k: "paid", p: player, a: cost });
       charge(s, player, "bank", cost);
@@ -487,13 +638,12 @@ function applyCard(s: Draft, deck: Deck, cardIndex: number, dice: Dice) {
   s.phase = afterTurnPhase(s);
 }
 
-function moveBy(s: Draft, dice: Dice) {
+function moveBy(s: Draft, steps: number) {
   const player = s.current;
   const pl = s.players[player];
-  const total = dice[0] + dice[1];
-  const to = (pl.pos + total) % 40;
+  const to = (pl.pos + steps) % BOARD_SIZE;
   moveTo(s, player, to, true);
-  land(s, total);
+  land(s, steps);
 }
 
 function nextPlayer(s: Draft) {
@@ -506,6 +656,7 @@ function nextPlayer(s: Draft) {
   s.current = next;
   s.doublesCount = 0;
   s.rollAgain = false;
+  s.pendingTurbo = false;
   s.phase = { t: "roll" };
 }
 
@@ -569,6 +720,10 @@ function declareBankrupt(s: Draft) {
       pl.cash += (deed.houses * space.houseCost) / 2;
       deed.houses = 0;
     }
+    if (deed.depot) {
+      pl.cash += DEPOT_COST / 2;
+      deed.depot = false;
+    }
   }
 
   const auctionQueue: number[] = [];
@@ -578,13 +733,16 @@ function declareBankrupt(s: Draft) {
       auctionQueue.push(pos);
     }
     pl.jailCards.forEach((deck) => s.decks[deck].push(CARD_JAIL_FREE[deck]));
+    s.busDeck.push(...pl.busTickets);
   } else {
     s.players[creditor].cash += pl.cash;
     s.players[creditor].jailCards.push(...pl.jailCards);
+    s.players[creditor].busTickets.push(...pl.busTickets);
     for (const pos of owned) transferDeed(s, pos, creditor);
   }
   pl.cash = 0;
   pl.jailCards = [];
+  pl.busTickets = [];
   s.debts = s.debts.filter((d) => d.debtor !== loser);
 
   const resume: Phase =
@@ -649,15 +807,18 @@ export function reduce(state: GameState, action: Action): GameState {
       if (ph.t !== "roll") return state;
       const dice = action.dice;
       const doubles = dice[0] === dice[1];
+      // The speed die joins once a player has been around the board, and never in jail.
+      const speed = pl.lapped && !pl.inJail ? (action.speed ?? null) : null;
       s.lastDice = dice;
-      log(s, { k: "rolled", p: pl.id, d: dice });
+      s.lastSpeed = speed;
+      log(s, speed === null ? { k: "rolled", p: pl.id, d: dice } : { k: "rolled", p: pl.id, d: dice, sp: speed });
       if (pl.inJail) {
         if (doubles) {
           pl.inJail = false;
           pl.jailTurns = 0;
           s.rollAgain = false;
           log(s, { k: "jailDoubles", p: pl.id });
-          moveBy(s, dice);
+          moveBy(s, dice[0] + dice[1]);
         } else {
           pl.jailTurns += 1;
           if (pl.jailTurns >= 3) {
@@ -666,12 +827,19 @@ export function reduce(state: GameState, action: Action): GameState {
             s.rollAgain = false;
             log(s, { k: "jailForcedFine", p: pl.id, a: JAIL_FINE });
             charge(s, pl.id, "bank", JAIL_FINE);
-            moveBy(s, dice);
+            moveBy(s, dice[0] + dice[1]);
           } else {
             log(s, { k: "jailStay", p: pl.id });
             s.phase = { t: "postRoll" };
           }
         }
+        break;
+      }
+      if (doubles && speed === dice[0]) {
+        // Triples: move to any space; the turn then ends.
+        s.rollAgain = false;
+        log(s, { k: "triples", p: pl.id });
+        s.phase = { t: "pickSpace" };
         break;
       }
       if (doubles) {
@@ -684,7 +852,81 @@ export function reduce(state: GameState, action: Action): GameState {
         }
       }
       s.rollAgain = doubles;
-      moveBy(s, dice);
+      if (speed === "bus") {
+        s.phase = { t: "busMove" };
+        break;
+      }
+      s.pendingTurbo = speed === "turbo";
+      moveBy(s, dice[0] + dice[1] + (typeof speed === "number" ? speed : 0));
+      break;
+    }
+    case "TURBO": {
+      if (ph.t !== "turbo") return state;
+      s.pendingTurbo = false;
+      const target = turboTarget(s, pl.id);
+      if (target === undefined) {
+        s.phase = afterTurnPhase(s);
+        break;
+      }
+      moveTo(s, pl.id, target, true);
+      log(s, { k: "turbo", p: pl.id, s: target });
+      land(s, s.lastDice ? s.lastDice[0] + s.lastDice[1] : 0);
+      break;
+    }
+    case "BUS_MOVE": {
+      if (ph.t !== "busMove" || !s.lastDice) return state;
+      const [a, b] = s.lastDice;
+      if (![a, b, a + b].includes(action.steps)) return state;
+      moveBy(s, action.steps);
+      break;
+    }
+    case "PICK_SPACE": {
+      if (ph.t !== "pickSpace" || !Number.isInteger(action.pos) || action.pos < 0 || action.pos >= BOARD_SIZE) return state;
+      const total = s.lastDice ? s.lastDice[0] + s.lastDice[1] : 0;
+      if (action.pos !== pl.pos) moveTo(s, pl.id, action.pos, true);
+      land(s, total);
+      break;
+    }
+    case "AUCTION_PICK": {
+      if (ph.t !== "auctionPick" || s.deeds[action.pos]?.owner !== null) return state;
+      startAuction(s, [action.pos], afterTurnPhase(s));
+      break;
+    }
+    case "BIRTHDAY": {
+      if (ph.t !== "birthday") return state;
+      if (action.choice === "bus" && s.busDeck.length) {
+        drawBusTicket(s, pl.id);
+      } else {
+        pl.cash += BIRTHDAY_GIFT;
+        log(s, { k: "collected", p: pl.id, a: BIRTHDAY_GIFT });
+      }
+      s.phase = afterTurnPhase(s);
+      break;
+    }
+    case "USE_BUS": {
+      // Ride the bus instead of rolling: move forward to any space up to the end of this side. The turn then ends.
+      if (ph.t !== "roll" || pl.inJail || !pl.busTickets.length || !busDestinations(pl.pos).includes(action.pos)) return state;
+      s.busDeck.push(pl.busTickets.shift()!);
+      s.rollAgain = false;
+      s.lastDice = action.dice;
+      s.lastSpeed = null;
+      moveTo(s, pl.id, action.pos, true);
+      log(s, { k: "busUsed", p: pl.id, s: action.pos });
+      land(s, action.dice[0] + action.dice[1]);
+      break;
+    }
+    case "BUILD_DEPOT": {
+      if (!canBuildDepot(s, action.player, action.pos)) return state;
+      s.players[action.player].cash -= DEPOT_COST;
+      s.deeds[action.pos].depot = true;
+      log(s, { k: "depotBuilt", p: action.player, s: action.pos });
+      break;
+    }
+    case "SELL_DEPOT": {
+      if (!canSellDepot(s, action.player, action.pos)) return state;
+      s.players[action.player].cash += DEPOT_COST / 2;
+      s.deeds[action.pos].depot = false;
+      log(s, { k: "depotSold", p: action.player, s: action.pos, a: DEPOT_COST / 2 });
       break;
     }
     case "PAY_JAIL": {
@@ -763,8 +1005,7 @@ export function reduce(state: GameState, action: Action): GameState {
       const space = BOARD[action.pos];
       if (space.kind !== "property") return state;
       const deed = s.deeds[action.pos];
-      let newLevel = deed.houses - 1;
-      if (deed.houses === 5) newLevel = Math.min(4, housesInBank(s));
+      const newLevel = sellLevel(s, deed.houses);
       const refund = ((deed.houses - newLevel) * space.houseCost) / 2;
       deed.houses = newLevel;
       s.players[action.player].cash += refund;

@@ -20,16 +20,10 @@ describe("game state validation", () => {
   it("rejects malformed or out-of-range payloads", () => {
     const s = createGame(players, () => 0.3);
     expect(parseGameState(null)).toBeNull();
-    expect(parseGameState({ ...s, version: 2 })).toBeNull();
+    expect(parseGameState({ ...s, version: 1 })).toBeNull();
     expect(parseGameState({ ...s, current: 5 })).toBeNull();
-    expect(parseGameState({ ...s, players: [{ ...s.players[0], pos: 40 }, s.players[1]] })).toBeNull();
+    expect(parseGameState({ ...s, players: [{ ...s.players[0], pos: 52 }, s.players[1]] })).toBeNull();
     expect(parseGameState({ ...s, phase: { t: "hack" } })).toBeNull();
-  });
-
-  it("maps token ids from the earlier wildlife edition to car tokens", () => {
-    const s = createGame(players, () => 0.3);
-    const legacy = { ...s, players: [{ ...s.players[0], token: "orangutan" }, { ...s.players[1], token: "gumboot" }] };
-    expect(parseGameState(legacy)?.players.map((p) => p.token)).toEqual(["raceCar", "bus"]);
   });
 
   it("tracks a monotonically increasing log sequence", () => {
