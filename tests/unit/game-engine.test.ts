@@ -11,7 +11,7 @@ import {
 } from "@/lib/game/engine";
 
 function newGame(n = 3) {
-  const tokens = ["orangutan", "pangolin", "turtle", "cockatoo"] as const;
+  const tokens = ["raceCar", "taxi", "suv", "pickup"] as const;
   return createGame(
     Array.from({ length: n }, (_, i) => ({ name: `P${i + 1}`, token: tokens[i] })),
     () => 0.5,
@@ -173,6 +173,17 @@ describe("auction and trade", () => {
     s = run(s, { type: "BID", amount: 10 }, { type: "BID", amount: 20 }, { type: "PASS_BID" }, { type: "PASS_BID" });
     expect(s.deeds[3].owner).toBe(1);
     expect(s.players[1].cash).toBe(1480);
+  });
+
+  it("accepts any open-ended bid above the high bid, up to the bidder's cash", () => {
+    let s = run(newGame(), { type: "ROLL", dice: [1, 2] }, { type: "DECLINE" });
+    s = run(s, { type: "BID", amount: 137 });
+    expect(s.phase).toMatchObject({ t: "auction", high: 137 });
+    expect(run(s, { type: "BID", amount: 137 })).toBe(s);
+    expect(run(s, { type: "BID", amount: 1501 })).toBe(s);
+    s = run(s, { type: "BID", amount: 1500 }, { type: "PASS_BID" }, { type: "PASS_BID" });
+    expect(s.deeds[3].owner).toBe(1);
+    expect(s.players[1].cash).toBe(0);
   });
 
   it("trades deeds and cash and charges interest on mortgaged deeds", () => {

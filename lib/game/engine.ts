@@ -1,4 +1,4 @@
-// Pure rules engine for the wildlife-edition property trading game.
+// Pure rules engine for the car-edition property trading game.
 // Implements the classic official rules: GO salary, doubles (3 in a row → jail),
 // jail (fine / card / doubles, forced fine on 3rd failure), buy-or-auction,
 // monopoly double rent, railroads, utilities, even building with a limited

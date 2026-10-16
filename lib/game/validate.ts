@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { TOKENS } from "@/lib/game/board";
+import { TOKENS, normalizeToken } from "@/lib/game/board";
 import type { GameState } from "@/lib/game/engine";
 
 // Structural validation for game state uploaded by clients. Keeps a malformed
@@ -13,7 +13,7 @@ const dice = z.tuple([z.number().int().min(1).max(6), z.number().int().min(1).ma
 const player = z.object({
   id: playerId,
   name: z.string().min(1).max(40),
-  token: z.enum(TOKENS),
+  token: z.preprocess((v) => (typeof v === "string" ? normalizeToken(v) : v), z.enum(TOKENS)),
   cash: z.number().int().min(0).max(1_000_000),
   pos,
   inJail: z.boolean(),

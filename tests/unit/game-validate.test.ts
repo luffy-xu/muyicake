@@ -3,8 +3,8 @@ import { createGame, reduce } from "@/lib/game/engine";
 import { normalizeRoomSlug, parseGameState } from "@/lib/game/validate";
 
 const players = [
-  { name: "A", token: "orangutan" as const },
-  { name: "B", token: "pangolin" as const },
+  { name: "A", token: "raceCar" as const },
+  { name: "B", token: "taxi" as const },
 ];
 
 describe("game state validation", () => {
@@ -24,6 +24,12 @@ describe("game state validation", () => {
     expect(parseGameState({ ...s, current: 5 })).toBeNull();
     expect(parseGameState({ ...s, players: [{ ...s.players[0], pos: 40 }, s.players[1]] })).toBeNull();
     expect(parseGameState({ ...s, phase: { t: "hack" } })).toBeNull();
+  });
+
+  it("maps token ids from the earlier wildlife edition to car tokens", () => {
+    const s = createGame(players, () => 0.3);
+    const legacy = { ...s, players: [{ ...s.players[0], token: "orangutan" }, { ...s.players[1], token: "gumboot" }] };
+    expect(parseGameState(legacy)?.players.map((p) => p.token)).toEqual(["raceCar", "bus"]);
   });
 
   it("tracks a monotonically increasing log sequence", () => {

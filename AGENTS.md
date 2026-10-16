@@ -44,7 +44,7 @@ All user-visible text **must** be maintained in `lib/i18n.ts`.
 - Use the `dictionary` prop (passed down from page → layout components) to access strings. Do not use inline `locale === "en" ? "..." : "..."` conditionals for text that belongs in the dictionary.
 - For interpolated strings (e.g. `"仅剩 {remaining} 席"`), use the `{key}` placeholder syntax and a `fmt(template, vars)` helper — do not concatenate localized substrings.
 - Do not add new top-level i18n sections without noting them in this file.
-- `game` section: copy for the pass-and-play wildlife board game at `/game/[slug]` and `/en/game/[slug]` (board spaces, cards, rules, log templates). Rules engine lives in `lib/game/`.
+- `game` section: copy for the pass-and-play car board game at `/game/[slug]` and `/en/game/[slug]` (board spaces, cards, rules, log templates). Rules engine lives in `lib/game/`.
 
 ## Required Quality Gates
 Before claiming completion, run:

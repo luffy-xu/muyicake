@@ -11,6 +11,7 @@ import {
   TOKENS,
   TOKEN_ICONS,
   isOwnable,
+  normalizeToken,
   priceOf,
   type TokenId,
 } from "@/lib/game/board";
@@ -105,7 +106,7 @@ export function WildlifeGame({ locale, dictionary, room }: { locale: Locale; dic
     <main className="mx-auto min-h-screen w-full max-w-5xl px-4 pb-16 pt-4 text-[#2B1E1A]">
       <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-xl font-bold">🦧 {t.title}</h1>
+          <h1 className="text-xl font-bold">🏎️ {t.title}</h1>
           <p className="text-xs text-[#6B5A50]">{t.subtitle}</p>
           <p className="text-[11px] text-[#8A7A70]">{fmt(t.roomLabel, { room })}</p>
         </div>
@@ -253,7 +254,7 @@ function toastIcon(entry: LogEntry) {
   }
 }
 
-const CONFETTI = ["🎉", "🦧", "🐘", "🦜", "🐢", "✨", "🎊", "🐼"];
+const CONFETTI = ["🎉", "🏎️", "🚗", "🏁", "🚙", "✨", "🎊", "🏆"];
 
 function Confetti() {
   return (
@@ -416,7 +417,7 @@ function Board({
                     style={{ outline: `2px solid ${PLAYER_COLORS[pl.id]}`, background: "#fff" }}
                     title={pl.name}
                   >
-                    {TOKEN_ICONS[pl.token]}
+                    {TOKEN_ICONS[normalizeToken(pl.token)]}
                   </span>
                 ))}
               </span>
@@ -461,6 +462,52 @@ function Btn({
     >
       {children}
     </button>
+  );
+}
+
+// Open-ended bidding: any whole amount above the current high bid, up to the bidder's cash.
+function AuctionBid({
+  t,
+  min,
+  max,
+  onBid,
+  onPass,
+}: {
+  t: GameText;
+  min: number;
+  max: number;
+  onBid: (amount: number) => void;
+  onPass: () => void;
+}) {
+  const [value, setValue] = useState(String(Math.min(min, max)));
+  const amount = Math.floor(Number(value));
+  const valid = value.trim() !== "" && Number.isFinite(amount) && amount >= min && amount <= max;
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <div className="flex flex-wrap items-end justify-center gap-1.5">
+        <label className="text-[11px]">
+          {t.bidAmount}
+          <input
+            data-testid="bid-amount"
+            type="number"
+            inputMode="numeric"
+            min={min}
+            max={max}
+            step={1}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            className="mt-0.5 block w-24 rounded border px-2 py-1 text-sm"
+          />
+        </label>
+        <Btn testId="place-bid" disabled={!valid} onClick={() => onBid(amount)}>
+          {fmt(t.placeBid, { amount: valid ? amount : "…" })}
+        </Btn>
+        <Btn testId="pass-bid" tone="secondary" onClick={onPass}>
+          {t.passBid}
+        </Btn>
+      </div>
+      {min <= max ? <p className="text-[11px] text-[#6B5A50]">{fmt(t.bidRange, { min, max })}</p> : null}
+    </div>
   );
 }
 
@@ -564,20 +611,14 @@ function ActionPanel({
           <p className="text-xs font-semibold" style={{ color: PLAYER_COLORS[bidder.id] }}>
             {fmt(t.bidderTurn, { name: bidder.name, cash: bidder.cash })}
           </p>
-          <div className="flex flex-wrap justify-center gap-1.5">
-            {[1, 10, 50, 100].map((step) => (
-              <Btn
-                key={step}
-                disabled={ph.high + step > bidder.cash}
-                onClick={() => dispatch({ type: "BID", amount: ph.high + step })}
-              >
-                {fmt(t.bid, { step })}
-              </Btn>
-            ))}
-            <Btn testId="pass-bid" tone="secondary" onClick={() => dispatch({ type: "PASS_BID" })}>
-              {t.passBid}
-            </Btn>
-          </div>
+          <AuctionBid
+            key={`${bidder.id}-${ph.high}`}
+            t={t}
+            min={ph.high + 1}
+            max={bidder.cash}
+            onBid={(amount) => dispatch({ type: "BID", amount })}
+            onPass={() => dispatch({ type: "PASS_BID" })}
+          />
         </>
       );
       break;
@@ -632,7 +673,7 @@ function ActionPanel({
       <p className="hidden text-base font-bold text-[#1F5E3A] sm:block">{t.title}</p>
       {ph.t !== "over" ? (
         <p className="text-xs font-semibold sm:text-sm" style={{ color: PLAYER_COLORS[pl.id] }} data-testid="turn">
-          {TOKEN_ICONS[pl.token]} {fmt(t.turnOf, { name: pl.name })} · {money(t, pl.cash)}
+          {TOKEN_ICONS[normalizeToken(pl.token)]} {fmt(t.turnOf, { name: pl.name })} · {money(t, pl.cash)}
         </p>
       ) : null}
       {rollingFaces ? (
@@ -704,7 +745,7 @@ function Players({
           >
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-semibold" style={{ color: PLAYER_COLORS[pl.id] }}>
-                {TOKEN_ICONS[pl.token]} {pl.name}
+                {TOKEN_ICONS[normalizeToken(pl.token)]} {pl.name}
                 {pl.bankrupt ? ` · ${t.bankrupted}` : ""}
                 {pl.inJail ? " 🔒" : ""}
               </p>

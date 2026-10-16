@@ -1,4 +1,4 @@
-// Board data for the wildlife-edition property trading game.
+// Board data for the car-edition property trading game.
 // Prices, rents and building costs follow the classic 40-space board;
 // display names live in lib/i18n.ts under `game.spaces` (same index order).
 
@@ -67,10 +67,10 @@ export const BOARD: readonly Space[] = [
 ];
 
 export const SPACE_ICONS: readonly string[] = [
-  "➡️", "🐊", "💚", "🦦", "💰", "🏞️", "🐒", "🌿", "🦎", "🦛",
-  "🔒", "🦊", "🛍️", "🐈", "🐆", "🦉", "🐗", "💚", "🐻", "🐵",
-  "🅿️", "🦒", "🌿", "🦓", "🦏", "🐟", "🦁", "🐆", "🚋", "🐅",
-  "👮", "🌊", "🦦", "💚", "🦜", "🦩", "🌿", "🐼", "💰", "🐘",
+  "➡️", "🛺", "🔧", "🚗", "💰", "🛣️", "🚘", "🎲", "🚗", "🚙",
+  "🔒", "🚐", "⛽", "🚙", "🛻", "🛣️", "🔋", "🔧", "🌱", "🚘",
+  "🅿️", "🚗", "🎲", "🚘", "🚙", "🛣️", "🏎️", "🏎️", "🧽", "🚘",
+  "👮", "🚘", "🏎️", "🔧", "🏎️", "🛣️", "🎲", "🏎️", "💰", "🏆",
 ];
 
 export const GROUP_COLORS: Record<ColorGroup, string> = {
@@ -84,17 +84,31 @@ export const GROUP_COLORS: Record<ColorGroup, string> = {
   darkBlue: "#1E4FA1",
 };
 
-export const TOKENS = ["orangutan", "pangolin", "turtle", "cockatoo", "walkieTalkie", "gumboot"] as const;
+export const TOKENS = ["raceCar", "taxi", "suv", "pickup", "motorbike", "bus"] as const;
 export type TokenId = (typeof TOKENS)[number];
 
 export const TOKEN_ICONS: Record<TokenId, string> = {
-  orangutan: "🦧",
-  pangolin: "🦔",
-  turtle: "🐢",
-  cockatoo: "🦜",
-  walkieTalkie: "📻",
-  gumboot: "🥾",
+  raceCar: "🏎️",
+  taxi: "🚕",
+  suv: "🚙",
+  pickup: "🛻",
+  motorbike: "🏍️",
+  bus: "🚌",
 };
+
+// Token ids from the earlier wildlife edition, kept so saved rooms still load.
+const LEGACY_TOKENS: Record<string, TokenId> = {
+  orangutan: "raceCar",
+  pangolin: "taxi",
+  turtle: "suv",
+  cockatoo: "pickup",
+  walkieTalkie: "motorbike",
+  gumboot: "bus",
+};
+
+export function normalizeToken(id: string): TokenId {
+  return (TOKENS as readonly string[]).includes(id) ? (id as TokenId) : (LEGACY_TOKENS[id] ?? TOKENS[0]);
+}
 
 export const PLAYER_COLORS = ["#E2342D", "#1E4FA1", "#1F9E55", "#F39A1E", "#8E44AD", "#2B1E1A"];
 
@@ -140,7 +154,7 @@ export type CardEffect =
   | { kind: "payEach"; amount: number }
   | { kind: "collectEach"; amount: number };
 
-// "Act for Wildlife" deck (replaces Chance). Text: game.chanceCards[i].
+// "Joyride" deck (replaces Chance). Text: game.chanceCards[i].
 export const CHANCE_CARDS: readonly CardEffect[] = [
   { kind: "advance", to: 0 },
   { kind: "advance", to: 39 },
@@ -160,7 +174,7 @@ export const CHANCE_CARDS: readonly CardEffect[] = [
   { kind: "collect", amount: 150 },
 ];
 
-// "Care for Wildlife" deck (replaces Community Chest). Text: game.chestCards[i].
+// "Pit Stop" deck (replaces Community Chest). Text: game.chestCards[i].
 export const CHEST_CARDS: readonly CardEffect[] = [
   { kind: "advance", to: 0 },
   { kind: "collect", amount: 200 },
