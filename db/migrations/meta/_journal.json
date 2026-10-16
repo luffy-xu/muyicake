@@ -22,6 +22,13 @@
       "when": 1782636523647,
       "tag": "0002_next_iron_man",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792144209054,
+      "tag": "0003_game_rooms",
+      "breakpoints": true
     }
   ]
 }

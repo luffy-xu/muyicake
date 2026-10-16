@@ -94,3 +94,71 @@ textarea {
 html {
   scroll-behavior: smooth;
 }
+
+/* ---------- Wildlife board game animations ---------- */
+@keyframes gameShake {
+  0%, 100% { transform: rotate(0) translate(0, 0); }
+  20% { transform: rotate(-14deg) translate(-2px, 1px); }
+  40% { transform: rotate(12deg) translate(2px, -2px); }
+  60% { transform: rotate(-10deg) translate(-1px, 2px); }
+  80% { transform: rotate(8deg) translate(1px, -1px); }
+}
+@keyframes gamePop {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.25); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@keyframes gameHop {
+  0% { transform: translateY(0) scale(1); }
+  45% { transform: translateY(-45%) scale(1.15); }
+  100% { transform: translateY(0) scale(1); }
+}
+@keyframes gameFlip {
+  0% { transform: perspective(600px) rotateY(90deg) scale(0.8); opacity: 0; }
+  100% { transform: perspective(600px) rotateY(0) scale(1); opacity: 1; }
+}
+@keyframes gameOwnFlash {
+  0% { transform: scale(1); filter: brightness(1); }
+  35% { transform: scale(1.18); filter: brightness(1.25); z-index: 5; }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+@keyframes gameRentShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+@keyframes gameToastIn {
+  0% { transform: translateY(-16px) scale(0.95); opacity: 0; }
+  12% { transform: translateY(0) scale(1); opacity: 1; }
+  85% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-8px); opacity: 0; }
+}
+@keyframes gameFloatUp {
+  0% { transform: translateY(4px); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateY(-28px); opacity: 0; }
+}
+@keyframes gameGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.9); }
+  50% { box-shadow: 0 0 0 4px rgba(255, 255, 255, 0); }
+}
+@keyframes gameConfetti {
+  0% { transform: translateY(-10vh) rotate(0); opacity: 1; }
+  100% { transform: translateY(110vh) rotate(540deg); opacity: 0.8; }
+}
+
+.game-shake { animation: gameShake 0.32s linear infinite; display: inline-block; }
+.game-pop { animation: gamePop 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) both; display: inline-block; }
+.game-hop { animation: gameHop 0.22s ease-out; }
+.game-flip { animation: gameFlip 0.5s cubic-bezier(0.2, 1.2, 0.4, 1) both; }
+.game-cell-own { animation: gameOwnFlash 0.9s ease-out; }
+.game-cell-rent { animation: gameRentShake 0.15s linear 4; }
+.game-toast { animation: gameToastIn 2.6s ease-out both; }
+.game-float-up { animation: gameFloatUp 1.6s ease-out both; }
+.game-glow { animation: gameGlow 1.2s ease-in-out infinite; }
+.game-confetti { animation: gameConfetti linear infinite; position: absolute; top: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .game-shake, .game-pop, .game-hop, .game-flip, .game-cell-own, .game-cell-rent,
+  .game-glow, .game-confetti, .game-toast, .game-float-up { animation: none; }
+}
