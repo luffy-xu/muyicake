@@ -3,7 +3,8 @@
 // floating cash changes) derived from new log entries.
 
 import { useEffect, useRef, useState } from "react";
-import type { Dice, GameState, LogEntry, LogKey } from "@/lib/game/engine";
+import { BOARD_SIZE, JAIL_POS } from "@/lib/game/board";
+import type { GameState, LogEntry, LogKey } from "@/lib/game/engine";
 
 const STEP_MS = 160;
 const FAST_STEP_MS = 70;
@@ -11,8 +12,8 @@ const ROLL_MS = 700;
 
 // ---------- dice ----------
 
-export function useDiceRoll(onDone: (dice: Dice) => void) {
-  const [faces, setFaces] = useState<Dice | null>(null);
+export function useDiceRoll<T>(onDone: (result: T) => void) {
+  const [faces, setFaces] = useState<T | null>(null);
   const timers = useRef<{ tick?: ReturnType<typeof setInterval>; done?: ReturnType<typeof setTimeout> }>({});
 
   useEffect(() => {
@@ -23,11 +24,11 @@ export function useDiceRoll(onDone: (dice: Dice) => void) {
     };
   }, []);
 
-  const roll = (result: Dice) => {
+  // `shuffle` produces a random-looking result for the tumbling animation.
+  const roll = (result: T, shuffle: () => T) => {
     if (faces) return;
-    const random = (): Dice => [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)];
-    setFaces(random());
-    timers.current.tick = setInterval(() => setFaces(random()), 80);
+    setFaces(shuffle());
+    timers.current.tick = setInterval(() => setFaces(shuffle()), 80);
     timers.current.done = setTimeout(() => {
       clearInterval(timers.current.tick);
       setFaces(null);
@@ -41,16 +42,16 @@ export function useDiceRoll(onDone: (dice: Dice) => void) {
 // ---------- token walking ----------
 
 function stepToward(from: number, to: number) {
-  const forward = (to - from + 40) % 40;
+  const forward = (to - from + BOARD_SIZE) % BOARD_SIZE;
   if (forward === 0) return from;
   // Short backward moves ("go back 3 spaces") walk backwards.
-  if (forward >= 36) return (from + 39) % 40;
-  return (from + 1) % 40;
+  if (forward >= BOARD_SIZE - 4) return (from + BOARD_SIZE - 1) % BOARD_SIZE;
+  return (from + 1) % BOARD_SIZE;
 }
 
 function shouldTeleport(from: number, to: number, inJail: boolean) {
-  const forward = (to - from + 40) % 40;
-  return (inJail && to === 10 && forward !== 0) || (forward > 30 && forward < 36);
+  const forward = (to - from + BOARD_SIZE) % BOARD_SIZE;
+  return (inJail && to === JAIL_POS && forward !== 0) || (forward > 40 && forward < BOARD_SIZE - 4);
 }
 
 export function useTokenWalk(game: GameState | null | undefined) {
@@ -75,7 +76,7 @@ export function useTokenWalk(game: GameState | null | undefined) {
       return () => clearTimeout(sync);
     }
     current = current.map((from, i) => (shouldTeleport(from, target[i], jailed[i]) ? target[i] : from));
-    const longest = Math.max(...current.map((from, i) => (target[i] - from + 40) % 40));
+    const longest = Math.max(...current.map((from, i) => (target[i] - from + BOARD_SIZE) % BOARD_SIZE));
     const delay = longest > 12 ? FAST_STEP_MS : STEP_MS;
 
     const tick = () => {
@@ -118,6 +119,12 @@ const TOAST_KEYS: ReadonlySet<LogKey> = new Set<LogKey>([
   "paid",
   "interestPaid",
   "unmortgaged",
+  "triples",
+  "turbo",
+  "busTicket",
+  "busExpire",
+  "busUsed",
+  "depotBuilt",
 ]);
 
 let fxId = 0;

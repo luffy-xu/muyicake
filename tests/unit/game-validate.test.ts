@@ -3,8 +3,8 @@ import { createGame, reduce } from "@/lib/game/engine";
 import { normalizeRoomSlug, parseGameState } from "@/lib/game/validate";
 
 const players = [
-  { name: "A", token: "orangutan" as const },
-  { name: "B", token: "pangolin" as const },
+  { name: "A", token: "raceCar" as const },
+  { name: "B", token: "taxi" as const },
 ];
 
 describe("game state validation", () => {
@@ -20,9 +20,9 @@ describe("game state validation", () => {
   it("rejects malformed or out-of-range payloads", () => {
     const s = createGame(players, () => 0.3);
     expect(parseGameState(null)).toBeNull();
-    expect(parseGameState({ ...s, version: 2 })).toBeNull();
+    expect(parseGameState({ ...s, version: 1 })).toBeNull();
     expect(parseGameState({ ...s, current: 5 })).toBeNull();
-    expect(parseGameState({ ...s, players: [{ ...s.players[0], pos: 40 }, s.players[1]] })).toBeNull();
+    expect(parseGameState({ ...s, players: [{ ...s.players[0], pos: 52 }, s.players[1]] })).toBeNull();
     expect(parseGameState({ ...s, phase: { t: "hack" } })).toBeNull();
   });
 

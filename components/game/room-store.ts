@@ -2,7 +2,7 @@
 // to the server (/api/game/[slug]) with optimistic revisions.
 
 import { useSyncExternalStore } from "react";
-import type { GameState } from "@/lib/game/engine";
+import { GAME_VERSION, type GameState } from "@/lib/game/engine";
 import type { SavedRoom } from "@/lib/game/rooms";
 
 export type SyncStatus = "idle" | "saving" | "synced" | "offline" | "conflict";
@@ -32,11 +32,8 @@ function load(room: string): RoomEntry {
   try {
     const raw = window.localStorage.getItem(STORAGE_PREFIX + room);
     const parsed = raw ? JSON.parse(raw) : null;
-    if (parsed?.version === 1) {
-      // Saved before server sync existed.
-      entry.state = parsed as GameState;
-      entry.dirty = true;
-    } else if (parsed?.state?.version === 1) {
+    // Saves from an older board version (or before server sync existed) can't be resumed.
+    if (parsed?.state?.version === GAME_VERSION) {
       entry.state = parsed.state as GameState;
       entry.revision = typeof parsed.revision === "number" ? parsed.revision : null;
       entry.dirty = parsed.dirty === true;
@@ -147,6 +144,12 @@ export async function pullRoom(room: string) {
     return;
   }
 
+  if (remote && !isCurrent(remote)) {
+    // The cloud copy was saved by an older edition of the game: start fresh on top of it.
+    update(room, { revision: remote.revision, dirty: !!local.state, status: "idle", remote: null });
+    if (local.state) await pushRoom(room);
+    return;
+  }
   if (!remote) {
     if (local.state) await pushRoom(room);
     else update(room, { status: "idle", revision: null });
@@ -164,9 +167,13 @@ export async function pullRoom(room: string) {
   update(room, { status: "conflict", remote });
 }
 
+function isCurrent(saved: SavedRoom) {
+  return (saved.state as { version?: unknown } | null)?.version === GAME_VERSION;
+}
+
 export async function resolveConflict(room: string, keep: "cloud" | "local") {
   const { remote } = getEntry(room);
-  if (keep === "cloud") {
+  if (keep === "cloud" && remote && isCurrent(remote)) {
     update(room, {
       state: remote?.state ?? null,
       revision: remote?.revision ?? null,

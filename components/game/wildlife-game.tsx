@@ -3,20 +3,31 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
+  BIRTHDAY_GIFT,
   BOARD,
+  DEPOT_COST,
   GROUP_COLORS,
+  HOTEL_LEVEL,
   JAIL_FINE,
   PLAYER_COLORS,
+  SIDE_LENGTH,
+  SKYSCRAPER_LEVEL,
   SPACE_ICONS,
+  STARTING_CASH,
+  STARTING_CASH_OPTIONS,
   TOKENS,
   TOKEN_ICONS,
+  busDestinations,
   isOwnable,
   priceOf,
+  type Speed,
   type TokenId,
 } from "@/lib/game/board";
 import {
   canBuild,
+  canBuildDepot,
   canMortgage,
+  canSellDepot,
   canSellHouse,
   canUnmortgage,
   createGame,
@@ -26,6 +37,11 @@ import {
   mortgageValue,
   reduce,
   rollDice,
+  rollSpeed,
+  skyscrapersInBank,
+  highestRentCar,
+  rentFor,
+  unownedCars,
   unmortgageCost,
   validateTrade,
   type Action,
@@ -60,14 +76,33 @@ type GameText = Dictionary["game"];
 
 // ---------- board geometry ----------
 
+// 52 spaces → a 14×14 grid with GO in the bottom-right corner.
+const GRID = SIDE_LENGTH + 1;
+
 function cellPosition(pos: number) {
-  if (pos <= 10) return { row: 11, col: 11 - pos };
-  if (pos <= 20) return { row: 11 - (pos - 10), col: 1 };
-  if (pos <= 30) return { row: 1, col: 1 + (pos - 20) };
-  return { row: 1 + (pos - 30), col: 11 };
+  const side = Math.floor(pos / SIDE_LENGTH);
+  const step = pos % SIDE_LENGTH;
+  if (side === 0) return { row: GRID, col: GRID - step };
+  if (side === 1) return { row: GRID - step, col: 1 };
+  if (side === 2) return { row: 1, col: 1 + step };
+  return { row: 1 + step, col: GRID };
 }
 
 const DICE_FACES = ["", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
+
+function speedFace(speed: Speed) {
+  return speed === "turbo" ? "🚀" : speed === "bus" ? "🚌" : DICE_FACES[speed];
+}
+
+function speedLabel(t: GameText, speed: Speed) {
+  return speed === "turbo" ? t.speedTurbo : speed === "bus" ? t.speedBus : String(speed);
+}
+
+function buildingIcons(level: number) {
+  if (level === SKYSCRAPER_LEVEL) return "🏙️";
+  if (level === HOTEL_LEVEL) return "🏨";
+  return "🏠".repeat(level);
+}
 
 function money(t: GameText, amount: number) {
   return fmt(t.cash, { amount });
@@ -94,7 +129,9 @@ export function WildlifeGame({ locale, dictionary, room }: { locale: Locale; dic
     if (next !== current) setRoomState(room, next);
   };
 
-  const { rollingFaces, roll } = useDiceRoll((dice) => dispatch({ type: "ROLL", dice }));
+  const { rollingFaces, roll } = useDiceRoll((result: { dice: Dice; speed: Speed }) =>
+    dispatch({ type: "ROLL", dice: result.dice, speed: result.speed }),
+  );
   const { display, walking } = useTokenWalk(game);
   const busy = !!rollingFaces || walking;
   const fx = useGameFx(game, busy);
@@ -105,7 +142,7 @@ export function WildlifeGame({ locale, dictionary, room }: { locale: Locale; dic
     <main className="mx-auto min-h-screen w-full max-w-5xl px-4 pb-16 pt-4 text-[#2B1E1A]">
       <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-xl font-bold">🦧 {t.title}</h1>
+          <h1 className="text-xl font-bold">🏎️ {t.title}</h1>
           <p className="text-xs text-[#6B5A50]">{t.subtitle}</p>
           <p className="text-[11px] text-[#8A7A70]">{fmt(t.roomLabel, { room })}</p>
         </div>
@@ -133,7 +170,7 @@ export function WildlifeGame({ locale, dictionary, room }: { locale: Locale; dic
       {game === undefined ? (
         <div className="aspect-square w-full max-w-[720px] animate-pulse rounded-xl bg-[#E9F2E4]" />
       ) : game === null ? (
-        <Setup t={t} onStart={(players) => setRoomState(room, createGame(players))} />
+        <Setup t={t} onStart={(players, cash) => setRoomState(room, createGame(players, Math.random, cash))} />
       ) : (
         <div className="lg:grid lg:grid-cols-[minmax(0,720px)_1fr] lg:gap-4">
           <Board t={t} game={game} positions={display ?? []} cells={fx.cells} onSelect={setDetail}>
@@ -144,7 +181,7 @@ export function WildlifeGame({ locale, dictionary, room }: { locale: Locale; dic
               onManage={setManageFor}
               busy={busy}
               rollingFaces={rollingFaces}
-              onRoll={() => roll(rollDice())}
+              onRoll={() => roll({ dice: rollDice(), speed: rollSpeed() }, () => ({ dice: rollDice(), speed: rollSpeed() }))}
             />
           </Board>
           <div className="mt-4 space-y-4 lg:mt-0">
@@ -238,7 +275,16 @@ function toastIcon(entry: LogEntry) {
     case "auctionWon":
       return "🎉";
     case "built":
-      return entry.a === 5 ? "🏨" : "🏠";
+      return entry.a === SKYSCRAPER_LEVEL ? "🏙️" : entry.a === HOTEL_LEVEL ? "🏨" : "🏠";
+    case "depotBuilt":
+      return "🚧";
+    case "turbo":
+      return "🚀";
+    case "busTicket":
+    case "busUsed":
+      return "🚌";
+    case "triples":
+      return "🎯";
     case "toJail":
     case "threeDoubles":
       return "🚨";
@@ -253,7 +299,7 @@ function toastIcon(entry: LogEntry) {
   }
 }
 
-const CONFETTI = ["🎉", "🦧", "🐘", "🦜", "🐢", "✨", "🎊", "🐼"];
+const CONFETTI = ["🎉", "🏎️", "🚗", "🏁", "🚙", "✨", "🎊", "🏆"];
 
 function Confetti() {
   return (
@@ -277,8 +323,15 @@ function Confetti() {
 
 // ---------- setup ----------
 
-function Setup({ t, onStart }: { t: GameText; onStart: (players: { name: string; token: TokenId }[]) => void }) {
+function Setup({
+  t,
+  onStart,
+}: {
+  t: GameText;
+  onStart: (players: { name: string; token: TokenId }[], startingCash: number) => void;
+}) {
   const [count, setCount] = useState(2);
+  const [startingCash, setStartingCash] = useState(STARTING_CASH);
   const [names, setNames] = useState<string[]>(() => Array.from({ length: 6 }, () => ""));
   const [tokens, setTokens] = useState<TokenId[]>([...TOKENS]);
 
@@ -299,6 +352,21 @@ function Setup({ t, onStart }: { t: GameText; onStart: (players: { name: string;
           {[2, 3, 4, 5, 6].map((n) => (
             <option key={n} value={n}>
               {n}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="mb-3 flex items-center gap-3 text-sm">
+        {t.startingCash}
+        <select
+          className="rounded-lg border px-2 py-1"
+          value={startingCash}
+          onChange={(e) => setStartingCash(Number(e.target.value))}
+          data-testid="starting-cash"
+        >
+          {STARTING_CASH_OPTIONS.map((amount) => (
+            <option key={amount} value={amount}>
+              {money(t, amount)}
             </option>
           ))}
         </select>
@@ -340,6 +408,7 @@ function Setup({ t, onStart }: { t: GameText; onStart: (players: { name: string;
               name: names[i].trim() || fmt(t.playerDefault, { n: i + 1 }),
               token: tokens[i],
             })),
+            startingCash,
           )
         }
       >
@@ -370,7 +439,10 @@ function Board({
   return (
     <div
       className="grid aspect-square w-full max-w-[720px] gap-px rounded-xl border-2 border-[#1F5E3A] bg-[#1F5E3A]"
-      style={{ gridTemplateColumns: "1.4fr repeat(9, 1fr) 1.4fr", gridTemplateRows: "1.4fr repeat(9, 1fr) 1.4fr" }}
+      style={{
+        gridTemplateColumns: `1.4fr repeat(${GRID - 2}, 1fr) 1.4fr`,
+        gridTemplateRows: `1.4fr repeat(${GRID - 2}, 1fr) 1.4fr`,
+      }}
       data-testid="game-board"
     >
       {BOARD.map((space, pos) => {
@@ -392,18 +464,18 @@ function Board({
             {space.kind === "property" ? (
               <span className="block h-[18%] w-full shrink-0" style={{ background: GROUP_COLORS[space.group] }} />
             ) : null}
-            {deed && deed.houses > 0 ? (
+            {deed && (deed.houses > 0 || deed.depot) ? (
               <span
                 key={`${deed.houses}-${cellFx === "build" ? "fx" : ""}`}
-                className={`absolute left-0 right-0 top-0 text-[7px] sm:text-[10px] ${cellFx === "build" ? "game-pop" : ""}`}
+                className={`absolute left-0 right-0 top-0 text-[6px] sm:text-[9px] ${cellFx === "build" ? "game-pop" : ""}`}
               >
-                {deed.houses === 5 ? "🏨" : "🏠".repeat(deed.houses)}
+                {deed.depot ? "🚧" : buildingIcons(deed.houses)}
               </span>
             ) : null}
-            <span className="mt-[2px] text-[11px] sm:text-lg">{SPACE_ICONS[pos]}</span>
-            <span className="w-full truncate px-[1px] text-[6px] font-medium sm:text-[9px]">{t.shortSpaces[pos]}</span>
+            <span className="mt-[2px] text-[10px] sm:text-base">{SPACE_ICONS[pos]}</span>
+            <span className="w-full truncate px-[1px] text-[5px] font-medium sm:text-[8px]">{t.shortSpaces[pos]}</span>
             {isOwnable(pos) ? (
-              <span className={`text-[6px] sm:text-[9px] ${deed?.mortgaged ? "line-through opacity-50" : "text-[#6B5A50]"}`}>
+              <span className={`text-[5px] sm:text-[8px] ${deed?.mortgaged ? "line-through opacity-50" : "text-[#6B5A50]"}`}>
                 ${priceOf(pos)}
               </span>
             ) : null}
@@ -412,7 +484,7 @@ function Board({
                 {here.map((pl) => (
                   <span
                     key={`${pl.id}-${pos}`}
-                    className={`game-hop relative rounded-full text-[10px] sm:text-base ${pl.id === active ? "z-10 game-glow" : ""}`}
+                    className={`game-hop relative rounded-full text-[9px] sm:text-sm ${pl.id === active ? "z-10 game-glow" : ""}`}
                     style={{ outline: `2px solid ${PLAYER_COLORS[pl.id]}`, background: "#fff" }}
                     title={pl.name}
                   >
@@ -424,7 +496,7 @@ function Board({
           </button>
         );
       })}
-      <div className="flex min-h-0 flex-col items-center justify-center overflow-auto bg-[#E9F2E4] p-2" style={{ gridRow: "2 / 11", gridColumn: "2 / 11" }}>
+      <div className="flex min-h-0 flex-col items-center justify-center overflow-auto bg-[#E9F2E4] p-2" style={{ gridRow: `2 / ${GRID}`, gridColumn: `2 / ${GRID}` }}>
         {children}
       </div>
     </div>
@@ -464,6 +536,89 @@ function Btn({
   );
 }
 
+// Open-ended bidding: any whole amount above the current high bid, up to the bidder's cash.
+function AuctionBid({
+  t,
+  min,
+  max,
+  onBid,
+  onPass,
+}: {
+  t: GameText;
+  min: number;
+  max: number;
+  onBid: (amount: number) => void;
+  onPass: () => void;
+}) {
+  const [value, setValue] = useState(String(Math.min(min, max)));
+  const amount = Math.floor(Number(value));
+  const valid = value.trim() !== "" && Number.isFinite(amount) && amount >= min && amount <= max;
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <div className="flex flex-wrap items-end justify-center gap-1.5">
+        <label className="text-[11px]">
+          {t.bidAmount}
+          <input
+            data-testid="bid-amount"
+            type="number"
+            inputMode="numeric"
+            min={min}
+            max={max}
+            step={1}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            className="mt-0.5 block w-24 rounded border px-2 py-1 text-sm"
+          />
+        </label>
+        <Btn testId="place-bid" disabled={!valid} onClick={() => onBid(amount)}>
+          {fmt(t.placeBid, { amount: valid ? amount : "…" })}
+        </Btn>
+        <Btn testId="pass-bid" tone="secondary" onClick={onPass}>
+          {t.passBid}
+        </Btn>
+      </div>
+      {min <= max ? <p className="text-[11px] text-[#6B5A50]">{fmt(t.bidRange, { min, max })}</p> : null}
+    </div>
+  );
+}
+
+function SpacePicker({
+  t,
+  label,
+  options,
+  testId,
+  onPick,
+}: {
+  t: GameText;
+  label: string;
+  options: number[];
+  testId: string;
+  onPick: (pos: number) => void;
+}) {
+  const [pos, setPos] = useState(options[0] ?? 0);
+  if (!options.length) return null;
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-1.5">
+      <select
+        aria-label={t.destination}
+        data-testid={`${testId}-select`}
+        className="max-w-[60vw] rounded border px-1 py-1 text-xs sm:max-w-none"
+        value={pos}
+        onChange={(e) => setPos(Number(e.target.value))}
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {SPACE_ICONS[option]} {t.spaces[option]}
+          </option>
+        ))}
+      </select>
+      <Btn testId={testId} onClick={() => onPick(pos)}>
+        {label === t.destination ? t.moveHere : label}
+      </Btn>
+    </div>
+  );
+}
+
 function ActionPanel({
   t,
   game,
@@ -478,7 +633,7 @@ function ActionPanel({
   dispatch: (a: Action) => void;
   onManage: (player: number) => void;
   busy: boolean;
-  rollingFaces: Dice | null;
+  rollingFaces: { dice: Dice; speed: Speed } | null;
   onRoll: () => void;
 }) {
   const ph = game.phase;
@@ -491,6 +646,7 @@ function ActionPanel({
       body = (
         <>
           {pl.inJail ? <p className="text-xs">{fmt(t.inJail, { turns: pl.jailTurns + 1 })}</p> : null}
+          {pl.lapped && !pl.inJail ? <p className="text-[11px] text-[#6B5A50]">{t.speedDieNote}</p> : null}
           <div className="flex flex-wrap justify-center gap-2">
             <Btn testId="roll" onClick={onRoll}>
               🎲 {game.rollAgain ? t.rollAgain : t.roll}
@@ -507,6 +663,109 @@ function ActionPanel({
                 ) : null}
               </>
             ) : null}
+          </div>
+          {pl.busTickets.length && !pl.inJail ? (
+            <SpacePicker
+              key={`bus-${pl.pos}`}
+              t={t}
+              label={t.useBus}
+              options={busDestinations(pl.pos)}
+              testId="use-bus"
+              onPick={(pos) => dispatch({ type: "USE_BUS", pos, dice: rollDice() })}
+            />
+          ) : null}
+        </>
+      );
+      break;
+    case "turbo":
+      body = (
+        <>
+          <p className="text-xs">{t.turboHint}</p>
+          <Btn testId="turbo" onClick={() => dispatch({ type: "TURBO" })}>
+            {t.turboGo}
+          </Btn>
+        </>
+      );
+      break;
+    case "busMove": {
+      const [a, b] = game.lastDice ?? [0, 0];
+      body = (
+        <>
+          <p className="text-xs">{t.busMoveHint}</p>
+          <div className="flex flex-wrap justify-center gap-2">
+            {[...new Set([a, b, a + b])].map((steps) => (
+              <Btn key={steps} testId={`bus-move-${steps}`} onClick={() => dispatch({ type: "BUS_MOVE", steps })}>
+                {fmt(t.busMoveBy, { n: steps })}
+              </Btn>
+            ))}
+          </div>
+        </>
+      );
+      break;
+    }
+    case "pickSpace":
+      body = (
+        <>
+          <p className="text-xs">{t.pickSpaceHint}</p>
+          <SpacePicker
+            t={t}
+            label={t.destination}
+            options={BOARD.map((_, i) => i)}
+            testId="pick-space"
+            onPick={(pos) => dispatch({ type: "PICK_SPACE", pos })}
+          />
+        </>
+      );
+      break;
+    case "auctionPick":
+      body = (
+        <>
+          <p className="text-xs">{t.auctionPickHint}</p>
+          <SpacePicker
+            t={t}
+            label={t.startAuction}
+            options={unownedCars(game)}
+            testId="auction-pick"
+            onPick={(pos) => dispatch({ type: "AUCTION_PICK", pos })}
+          />
+        </>
+      );
+      break;
+    case "auctionFallback": {
+      const target = highestRentCar(game, pl.id);
+      body = (
+        <>
+          <p className="text-xs">{t.auctionFallbackHint}</p>
+          <div className="flex flex-wrap justify-center gap-2">
+            {target !== null ? (
+              <Btn testId="auction-go" onClick={() => dispatch({ type: "AUCTION_FALLBACK", go: true })}>
+                {fmt(t.goHighestRent, { space: t.spaces[target], rent: rentFor(game, target, 0) })}
+              </Btn>
+            ) : null}
+            <Btn testId="auction-stay" tone="secondary" onClick={() => dispatch({ type: "AUCTION_FALLBACK", go: false })}>
+              {t.stayHere}
+            </Btn>
+          </div>
+        </>
+      );
+      break;
+    }
+    case "birthday":
+      body = (
+        <>
+          <p className="text-xs">{t.birthdayHint}</p>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Btn testId="birthday-cash" onClick={() => dispatch({ type: "BIRTHDAY", choice: "cash" })}>
+              {fmt(t.birthdayCash, { amount: BIRTHDAY_GIFT })}
+            </Btn>
+            <Btn
+              testId="birthday-bus"
+              tone="secondary"
+              disabled={!game.busDeck.length}
+              onClick={() => dispatch({ type: "BIRTHDAY", choice: "bus" })}
+            >
+              🚌 {t.birthdayBus}
+            </Btn>
           </div>
         </>
       );
@@ -564,20 +823,14 @@ function ActionPanel({
           <p className="text-xs font-semibold" style={{ color: PLAYER_COLORS[bidder.id] }}>
             {fmt(t.bidderTurn, { name: bidder.name, cash: bidder.cash })}
           </p>
-          <div className="flex flex-wrap justify-center gap-1.5">
-            {[1, 10, 50, 100].map((step) => (
-              <Btn
-                key={step}
-                disabled={ph.high + step > bidder.cash}
-                onClick={() => dispatch({ type: "BID", amount: ph.high + step })}
-              >
-                {fmt(t.bid, { step })}
-              </Btn>
-            ))}
-            <Btn testId="pass-bid" tone="secondary" onClick={() => dispatch({ type: "PASS_BID" })}>
-              {t.passBid}
-            </Btn>
-          </div>
+          <AuctionBid
+            key={`${bidder.id}-${ph.high}`}
+            t={t}
+            min={ph.high + 1}
+            max={bidder.cash}
+            onBid={(amount) => dispatch({ type: "BID", amount })}
+            onPass={() => dispatch({ type: "PASS_BID" })}
+          />
         </>
       );
       break;
@@ -637,17 +890,19 @@ function ActionPanel({
       ) : null}
       {rollingFaces ? (
         <p className="flex gap-2 text-4xl leading-none sm:text-6xl" data-testid="dice-rolling" aria-hidden>
-          <span className="game-shake">{DICE_FACES[rollingFaces[0]]}</span>
-          <span className="game-shake">{DICE_FACES[rollingFaces[1]]}</span>
+          <span className="game-shake">{DICE_FACES[rollingFaces.dice[0]]}</span>
+          <span className="game-shake">{DICE_FACES[rollingFaces.dice[1]]}</span>
+          {pl.lapped && !pl.inJail ? <span className="game-shake text-[#E2342D]">{speedFace(rollingFaces.speed)}</span> : null}
         </p>
       ) : game.lastDice ? (
         <p
           key={game.logSeq ?? game.log.length}
           className="flex gap-2 text-4xl leading-none sm:text-6xl"
-          aria-label={`${game.lastDice[0]} + ${game.lastDice[1]}`}
+          aria-label={`${game.lastDice[0]} + ${game.lastDice[1]}${game.lastSpeed ? ` + ${speedLabel(t, game.lastSpeed)}` : ""}`}
         >
           <span className="game-pop">{DICE_FACES[game.lastDice[0]]}</span>
           <span className="game-pop">{DICE_FACES[game.lastDice[1]]}</span>
+          {game.lastSpeed ? <span className="game-pop text-[#E2342D]">{speedFace(game.lastSpeed)}</span> : null}
         </p>
       ) : null}
       {busy ? null : body}
@@ -669,7 +924,8 @@ function DeedChip({ t, game, pos, onClick }: { t: GameText; game: GameState; pos
       style={{ borderLeft: `4px solid ${color}`, background: "#F7F3EE" }}
     >
       {SPACE_ICONS[pos]} {t.shortSpaces[pos]}
-      {deed.houses ? ` ${deed.houses === 5 ? "🏨" : `🏠${deed.houses}`}` : ""}
+      {deed.houses ? ` ${deed.houses >= HOTEL_LEVEL ? buildingIcons(deed.houses) : `🏠${deed.houses}`}` : ""}
+      {deed.depot ? " 🚧" : ""}
     </button>
   );
 }
@@ -726,6 +982,7 @@ function Players({
               </p>
             </div>
             {pl.jailCards.length ? <p className="text-[11px]">🎫 {fmt(t.jailCards, { count: pl.jailCards.length })}</p> : null}
+            {pl.busTickets.length ? <p className="text-[11px]">🚌 {fmt(t.busTickets, { count: pl.busTickets.length })}</p> : null}
             {deeds.length ? (
               <div className="mt-1.5 flex flex-wrap gap-1">
                 {deeds.map((pos) => (
@@ -751,7 +1008,7 @@ function Players({
         </button>
       ) : null}
       <p className="text-center text-[11px] text-[#6B5A50]">
-        {fmt(t.bankSupply, { houses: housesInBank(game), hotels: hotelsInBank(game) })}
+        {fmt(t.bankSupply, { houses: housesInBank(game), hotels: hotelsInBank(game), towers: skyscrapersInBank(game) })}
       </p>
     </section>
   );
@@ -767,7 +1024,7 @@ function formatLog(t: GameText, game: GameState, e: LogEntry) {
     o: name(e.o),
     s: e.s !== undefined ? t.spaces[e.s] : "",
     a: e.a ?? "",
-    d: e.d ? `${e.d[0]} + ${e.d[1]}` : "",
+    d: e.d ? `${e.d[0]} + ${e.d[1]}${e.sp ? ` + ${speedLabel(t, e.sp)}` : ""}` : "",
     deck: e.deck ? t.decks[e.deck] : "",
     card,
   });
@@ -854,10 +1111,16 @@ function SpaceDetail({ t, game, pos, onClose }: { t: GameText; game: GameState; 
                 ))}
               </tbody>
             </table>
+            <p className="text-xs">{t.setRent}</p>
             <p className="text-xs">{fmt(t.houseCost, { cost: space.houseCost })}</p>
           </>
         ) : null}
-        {space.kind === "railroad" ? <p className="text-xs">{t.railroadRent}</p> : null}
+        {space.kind === "railroad" ? (
+          <p className="text-xs">
+            {t.railroadRent}
+            {deed.depot ? ` · 🚧 ${t.depotTag}` : ""}
+          </p>
+        ) : null}
         {space.kind === "utility" ? <p className="text-xs">{t.utilityRent}</p> : null}
         {space.kind === "tax" ? <p>{fmt(t.taxText, { amount: space.amount })}</p> : null}
       </div>
@@ -895,7 +1158,17 @@ function Manage({
               <div className="flex items-center justify-between gap-2">
                 <DeedChip t={t} game={game} pos={pos} />
                 <span className="text-[11px]">
-                  {deed.mortgaged ? t.mortgagedTag : deed.houses === 5 ? t.hotel : deed.houses ? fmt(t.houses, { count: deed.houses }) : ""}
+                  {deed.mortgaged
+                    ? t.mortgagedTag
+                    : deed.houses === SKYSCRAPER_LEVEL
+                      ? t.skyscraper
+                      : deed.houses === HOTEL_LEVEL
+                        ? t.hotel
+                        : deed.houses
+                          ? fmt(t.houses, { count: deed.houses })
+                          : deed.depot
+                            ? t.depotTag
+                            : ""}
                 </span>
               </div>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -912,6 +1185,21 @@ function Manage({
                       {fmt(t.sellHouse, { refund: space.houseCost / 2 })}
                     </Btn>
                   </>
+                ) : null}
+                {space.kind === "railroad" ? (
+                  deed.depot ? (
+                    <Btn
+                      tone="secondary"
+                      disabled={!canSellDepot(game, player, pos)}
+                      onClick={() => dispatch({ type: "SELL_DEPOT", player, pos })}
+                    >
+                      {fmt(t.sellDepot, { refund: DEPOT_COST / 2 })}
+                    </Btn>
+                  ) : (
+                    <Btn disabled={!canBuildDepot(game, player, pos)} onClick={() => dispatch({ type: "BUILD_DEPOT", player, pos })}>
+                      🚧 {fmt(t.buildDepot, { cost: DEPOT_COST })}
+                    </Btn>
+                  )
                 ) : null}
                 {deed.mortgaged ? (
                   <Btn
@@ -936,7 +1224,7 @@ function Manage({
         })}
       </ul>
       <p className="mt-3 text-[11px] text-[#6B5A50]">
-        {fmt(t.bankSupply, { houses: housesInBank(game), hotels: hotelsInBank(game) })}
+        {fmt(t.bankSupply, { houses: housesInBank(game), hotels: hotelsInBank(game), towers: skyscrapersInBank(game) })}
       </p>
     </Sheet>
   );

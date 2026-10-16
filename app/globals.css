@@ -95,7 +95,7 @@ html {
   scroll-behavior: smooth;
 }
 
-/* ---------- Wildlife board game animations ---------- */
+/* ---------- Car board game animations ---------- */
 @keyframes gameShake {
   0%, 100% { transform: rotate(0) translate(0, 0); }
   20% { transform: rotate(-14deg) translate(-2px, 1px); }

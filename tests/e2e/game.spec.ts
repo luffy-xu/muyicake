@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("wildlife board game plays, syncs to the server and resets", async ({ page, request }) => {
+test("car board game plays, syncs to the server and resets", async ({ page, request }) => {
   const room = `e2e-room-${Date.now()}`;
   await page.goto(`/game/${room}`);
   await page.getByTestId("player-count").selectOption("3");
