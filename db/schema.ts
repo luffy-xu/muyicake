@@ -1,4 +1,4 @@
-import { boolean, integer, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const customers = pgTable("customers", {
   whatsappKey: text("whatsapp_key").primaryKey(),
@@ -149,6 +149,15 @@ export const cakeSizeOptions = pgTable("cake_size_options", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// Saved progress for the pass-and-play board game at /game/[slug].
+export const gameRooms = pgTable("game_rooms", {
+  slug: text("slug").primaryKey(),
+  state: jsonb("state").notNull(),
+  revision: integer("revision").default(1).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export type CustomerRow = typeof customers.$inferSelect;
 export type ReservationRow = typeof reservations.$inferSelect;
 export type CakeCollectionRow = typeof cakeCollections.$inferSelect;
@@ -156,3 +165,4 @@ export type CakeStyleRow = typeof cakeStyles.$inferSelect;
 export type CakeStyleImageRow = typeof cakeStyleImages.$inferSelect;
 export type CakeStyleSectionRow = typeof cakeStyleSections.$inferSelect;
 export type CakeSizeOptionRow = typeof cakeSizeOptions.$inferSelect;
+export type GameRoomRow = typeof gameRooms.$inferSelect;

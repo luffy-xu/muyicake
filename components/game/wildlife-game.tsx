@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   BOARD,
   GROUP_COLORS,
@@ -30,59 +30,33 @@ import {
   validateTrade,
   type Action,
   type Deck,
+  type Dice,
   type GameState,
   type LogEntry,
   type TradeOffer,
 } from "@/lib/game/engine";
 import { fmt, localizedPath, type Locale, type getDictionary } from "@/lib/i18n";
+import {
+  getEntry,
+  pullRoom,
+  pushRoom,
+  resetRoom,
+  resolveConflict,
+  setRoomState,
+  useRoom,
+  type RoomEntry,
+} from "@/components/game/room-store";
+import {
+  useDiceRoll,
+  useGameFx,
+  useTokenWalk,
+  type CashFx,
+  type CellFx,
+  type Toast,
+} from "@/components/game/use-game-fx";
 
 type Dictionary = ReturnType<typeof getDictionary>;
 type GameText = Dictionary["game"];
-
-// ---------- per-room persistence (localStorage) ----------
-
-const STORAGE_PREFIX = "muyi-wildlife-game:";
-const cache = new Map<string, GameState | null>();
-const listeners = new Set<() => void>();
-
-function readGame(room: string): GameState | null {
-  if (!cache.has(room)) {
-    let value: GameState | null = null;
-    try {
-      const raw = window.localStorage.getItem(STORAGE_PREFIX + room);
-      const parsed = raw ? (JSON.parse(raw) as GameState) : null;
-      if (parsed?.version === 1) value = parsed;
-    } catch {
-      value = null;
-    }
-    cache.set(room, value);
-  }
-  return cache.get(room) ?? null;
-}
-
-function writeGame(room: string, value: GameState | null) {
-  cache.set(room, value);
-  try {
-    if (value) window.localStorage.setItem(STORAGE_PREFIX + room, JSON.stringify(value));
-    else window.localStorage.removeItem(STORAGE_PREFIX + room);
-  } catch {
-    // Storage unavailable (private mode): the game still works in memory.
-  }
-  listeners.forEach((listener) => listener());
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
-
-function useGame(room: string) {
-  return useSyncExternalStore(
-    subscribe,
-    () => readGame(room),
-    () => undefined,
-  );
-}
 
 // ---------- board geometry ----------
 
@@ -103,17 +77,27 @@ function money(t: GameText, amount: number) {
 
 export function WildlifeGame({ locale, dictionary, room }: { locale: Locale; dictionary: Dictionary; room: string }) {
   const t = dictionary.game;
-  const game = useGame(room);
+  const entry = useRoom(room);
+  const game = entry === undefined ? undefined : entry.state;
   const [detail, setDetail] = useState<number | null>(null);
   const [manageFor, setManageFor] = useState<number | null>(null);
   const [tradeOpen, setTradeOpen] = useState(false);
 
+  useEffect(() => {
+    void pullRoom(room);
+  }, [room]);
+
   const dispatch = (action: Action) => {
-    const current = readGame(room);
+    const current = getEntry(room).state;
     if (!current) return;
     const next = reduce(current, action);
-    if (next !== current) writeGame(room, next);
+    if (next !== current) setRoomState(room, next);
   };
+
+  const { rollingFaces, roll } = useDiceRoll((dice) => dispatch({ type: "ROLL", dice }));
+  const { display, walking } = useTokenWalk(game);
+  const busy = !!rollingFaces || walking;
+  const fx = useGameFx(game, busy);
 
   const otherLocalePath = localizedPath(`/game/${room}`, locale === "zh" ? "en" : "zh");
 
@@ -132,28 +116,46 @@ export function WildlifeGame({ locale, dictionary, room }: { locale: Locale; dic
           {game ? (
             <button
               type="button"
-              className="rounded-full border border-[#2B1E1A]/20 px-3 py-1.5 text-sm"
+              data-testid="reset-room"
+              className="rounded-full border border-[#E2342D]/40 px-3 py-1.5 text-sm text-[#B3261E]"
               onClick={() => {
-                if (window.confirm(t.confirmNewGame)) writeGame(room, null);
+                if (window.confirm(t.confirmReset)) void resetRoom(room);
               }}
             >
-              {t.newGame}
+              {t.resetProgress}
             </button>
           ) : null}
         </div>
       </header>
 
+      {entry ? <SyncBar t={t} entry={entry} room={room} /> : null}
+
       {game === undefined ? (
         <div className="aspect-square w-full max-w-[720px] animate-pulse rounded-xl bg-[#E9F2E4]" />
       ) : game === null ? (
-        <Setup t={t} onStart={(players) => writeGame(room, createGame(players))} />
+        <Setup t={t} onStart={(players) => setRoomState(room, createGame(players))} />
       ) : (
         <div className="lg:grid lg:grid-cols-[minmax(0,720px)_1fr] lg:gap-4">
-          <Board t={t} game={game} onSelect={setDetail}>
-            <ActionPanel t={t} game={game} dispatch={dispatch} onManage={setManageFor} />
+          <Board t={t} game={game} positions={display ?? []} cells={fx.cells} onSelect={setDetail}>
+            <ActionPanel
+              t={t}
+              game={game}
+              dispatch={dispatch}
+              onManage={setManageFor}
+              busy={busy}
+              rollingFaces={rollingFaces}
+              onRoll={() => roll(rollDice())}
+            />
           </Board>
           <div className="mt-4 space-y-4 lg:mt-0">
-            <Players t={t} game={game} onManage={setManageFor} onTrade={() => setTradeOpen(true)} onSelect={setDetail} />
+            <Players
+              t={t}
+              game={game}
+              cash={fx.cash}
+              onManage={setManageFor}
+              onTrade={() => setTradeOpen(true)}
+              onSelect={setDetail}
+            />
             <GameLog t={t} game={game} />
           </div>
         </div>
@@ -162,12 +164,114 @@ export function WildlifeGame({ locale, dictionary, room }: { locale: Locale; dic
       <Rules t={t} />
       <p className="mt-4 text-center text-[11px] text-[#8A7A70]">{t.disclaimer}</p>
 
+      {game ? <Toasts t={t} game={game} toasts={fx.toasts} /> : null}
+      {game?.phase.t === "over" && !busy ? <Confetti /> : null}
       {game && detail !== null ? <SpaceDetail t={t} game={game} pos={detail} onClose={() => setDetail(null)} /> : null}
       {game && manageFor !== null ? (
         <Manage t={t} game={game} player={manageFor} dispatch={dispatch} onClose={() => setManageFor(null)} />
       ) : null}
       {game && tradeOpen ? <Trade t={t} game={game} dispatch={dispatch} onClose={() => setTradeOpen(false)} /> : null}
     </main>
+  );
+}
+
+// ---------- cloud sync ----------
+
+function SyncBar({ t, entry, room }: { t: GameText; entry: RoomEntry; room: string }) {
+  if (entry.status === "conflict") {
+    return (
+      <div className="mb-3 rounded-xl border border-[#F39A1E] bg-[#FFF3DD] p-3 text-sm" data-testid="sync-conflict">
+        <p className="font-semibold">{t.sync.conflict}</p>
+        <p className="mb-2 text-xs">{t.conflictHint}</p>
+        <div className="flex flex-wrap gap-2">
+          <Btn onClick={() => void resolveConflict(room, "cloud")}>{t.useCloud}</Btn>
+          <Btn tone="secondary" onClick={() => void resolveConflict(room, "local")}>
+            {t.useLocal}
+          </Btn>
+        </div>
+      </div>
+    );
+  }
+  if (!entry.state) return null;
+  return (
+    <div className="mb-3 flex items-center justify-between gap-2 text-xs">
+      <span data-testid="sync-status" className={entry.status === "offline" ? "text-[#B3261E]" : "text-[#4A6B5A]"}>
+        {t.sync[entry.status]}
+      </span>
+      <button
+        type="button"
+        data-testid="upload-room"
+        disabled={entry.status === "saving"}
+        className="rounded-full border border-[#1F5E3A]/40 px-3 py-1 font-semibold text-[#1F5E3A] disabled:opacity-40"
+        onClick={() => void pushRoom(room)}
+      >
+        ⬆️ {t.upload}
+      </button>
+    </div>
+  );
+}
+
+// ---------- effects overlays ----------
+
+function Toasts({ t, game, toasts }: { t: GameText; game: GameState; toasts: Toast[] }) {
+  if (!toasts.length) return null;
+  return (
+    <div className="pointer-events-none fixed inset-x-0 top-3 z-40 flex flex-col items-center gap-1.5 px-4" aria-live="polite">
+      {toasts.map((toast) => (
+        <div
+          key={toast.id}
+          className="game-toast max-w-sm rounded-full bg-[#1F5E3A] px-4 py-2 text-center text-xs font-semibold text-white shadow-lg sm:text-sm"
+        >
+          {toastIcon(toast.entry)} {formatLog(t, game, toast.entry)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function toastIcon(entry: LogEntry) {
+  switch (entry.k) {
+    case "passGo":
+    case "collected":
+      return "💰";
+    case "bought":
+    case "auctionWon":
+      return "🎉";
+    case "built":
+      return entry.a === 5 ? "🏨" : "🏠";
+    case "toJail":
+    case "threeDoubles":
+      return "🚨";
+    case "jailDoubles":
+      return "🔓";
+    case "bankrupt":
+      return "💥";
+    case "trade":
+      return "🤝";
+    default:
+      return "💸";
+  }
+}
+
+const CONFETTI = ["🎉", "🦧", "🐘", "🦜", "🐢", "✨", "🎊", "🐼"];
+
+function Confetti() {
+  return (
+    <div className="pointer-events-none fixed inset-0 z-30 overflow-hidden" aria-hidden>
+      {Array.from({ length: 28 }, (_, i) => (
+        <span
+          key={i}
+          className="game-confetti text-2xl"
+          style={{
+            left: `${(i * 37) % 100}%`,
+            animationDuration: `${2.4 + ((i * 7) % 10) / 5}s`,
+            animationDelay: `${((i * 13) % 20) / 10}s`,
+          }}
+        >
+          {CONFETTI[i % CONFETTI.length]}
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -250,14 +354,19 @@ function Setup({ t, onStart }: { t: GameText; onStart: (players: { name: string;
 function Board({
   t,
   game,
+  positions,
+  cells,
   onSelect,
   children,
 }: {
   t: GameText;
   game: GameState;
+  positions: number[];
+  cells: Record<number, CellFx>;
   onSelect: (pos: number) => void;
   children: ReactNode;
 }) {
+  const active = game.phase.t === "over" ? -1 : game.current;
   return (
     <div
       className="grid aspect-square w-full max-w-[720px] gap-px rounded-xl border-2 border-[#1F5E3A] bg-[#1F5E3A]"
@@ -268,20 +377,26 @@ function Board({
         const { row, col } = cellPosition(pos);
         const deed = game.deeds[pos];
         const ownerColor = deed && deed.owner !== null ? PLAYER_COLORS[deed.owner] : undefined;
-        const here = game.players.filter((pl) => !pl.bankrupt && pl.pos === pos);
+        const here = game.players.filter((pl) => !pl.bankrupt && (positions[pl.id] ?? pl.pos) === pos);
+        const cellFx = cells[pos];
         return (
           <button
             key={pos}
             type="button"
             onClick={() => onSelect(pos)}
-            className="relative flex min-w-0 flex-col items-center justify-start overflow-hidden bg-[#F4F9EE] text-center leading-none"
+            className={`relative flex min-w-0 flex-col items-center justify-start overflow-hidden bg-[#F4F9EE] text-center leading-none ${
+              cellFx === "own" ? "game-cell-own" : cellFx === "rent" ? "game-cell-rent" : ""
+            }`}
             style={{ gridRow: row, gridColumn: col, boxShadow: ownerColor ? `inset 0 0 0 2px ${ownerColor}` : undefined }}
           >
             {space.kind === "property" ? (
               <span className="block h-[18%] w-full shrink-0" style={{ background: GROUP_COLORS[space.group] }} />
             ) : null}
             {deed && deed.houses > 0 ? (
-              <span className="absolute left-0 right-0 top-0 text-[7px] sm:text-[10px]">
+              <span
+                key={`${deed.houses}-${cellFx === "build" ? "fx" : ""}`}
+                className={`absolute left-0 right-0 top-0 text-[7px] sm:text-[10px] ${cellFx === "build" ? "game-pop" : ""}`}
+              >
                 {deed.houses === 5 ? "🏨" : "🏠".repeat(deed.houses)}
               </span>
             ) : null}
@@ -296,8 +411,8 @@ function Board({
               <span className="absolute bottom-0 left-0 right-0 flex flex-wrap justify-center">
                 {here.map((pl) => (
                   <span
-                    key={pl.id}
-                    className="rounded-full text-[10px] sm:text-base"
+                    key={`${pl.id}-${pos}`}
+                    className={`game-hop relative rounded-full text-[10px] sm:text-base ${pl.id === active ? "z-10 game-glow" : ""}`}
                     style={{ outline: `2px solid ${PLAYER_COLORS[pl.id]}`, background: "#fff" }}
                     title={pl.name}
                   >
@@ -354,11 +469,17 @@ function ActionPanel({
   game,
   dispatch,
   onManage,
+  busy,
+  rollingFaces,
+  onRoll,
 }: {
   t: GameText;
   game: GameState;
   dispatch: (a: Action) => void;
   onManage: (player: number) => void;
+  busy: boolean;
+  rollingFaces: Dice | null;
+  onRoll: () => void;
 }) {
   const ph = game.phase;
   const pl = game.players[game.current];
@@ -371,7 +492,7 @@ function ActionPanel({
         <>
           {pl.inJail ? <p className="text-xs">{fmt(t.inJail, { turns: pl.jailTurns + 1 })}</p> : null}
           <div className="flex flex-wrap justify-center gap-2">
-            <Btn testId="roll" onClick={() => dispatch({ type: "ROLL", dice: rollDice() })}>
+            <Btn testId="roll" onClick={onRoll}>
               🎲 {game.rollAgain ? t.rollAgain : t.roll}
             </Btn>
             {pl.inJail ? (
@@ -418,7 +539,8 @@ function ActionPanel({
       const text = ph.deck === "chance" ? t.chanceCards[ph.card] : t.chestCards[ph.card];
       body = (
         <div
-          className={`w-full max-w-[240px] rounded-lg border-2 p-2 text-center shadow ${
+          key={`${ph.deck}-${ph.card}-${game.logSeq ?? game.log.length}`}
+          className={`game-flip w-full max-w-[240px] rounded-lg border-2 p-2 text-center shadow ${
             ph.deck === "chance" ? "border-[#F39A1E] bg-[#FFF3DD]" : "border-[#1E4FA1] bg-[#E3EEFF]"
           }`}
         >
@@ -513,13 +635,22 @@ function ActionPanel({
           {TOKEN_ICONS[pl.token]} {fmt(t.turnOf, { name: pl.name })} · {money(t, pl.cash)}
         </p>
       ) : null}
-      {game.lastDice ? (
-        <p className="text-3xl leading-none sm:text-5xl" aria-label={`${game.lastDice[0]} + ${game.lastDice[1]}`}>
-          {DICE_FACES[game.lastDice[0]]}
-          {DICE_FACES[game.lastDice[1]]}
+      {rollingFaces ? (
+        <p className="flex gap-2 text-4xl leading-none sm:text-6xl" data-testid="dice-rolling" aria-hidden>
+          <span className="game-shake">{DICE_FACES[rollingFaces[0]]}</span>
+          <span className="game-shake">{DICE_FACES[rollingFaces[1]]}</span>
+        </p>
+      ) : game.lastDice ? (
+        <p
+          key={game.logSeq ?? game.log.length}
+          className="flex gap-2 text-4xl leading-none sm:text-6xl"
+          aria-label={`${game.lastDice[0]} + ${game.lastDice[1]}`}
+        >
+          <span className="game-pop">{DICE_FACES[game.lastDice[0]]}</span>
+          <span className="game-pop">{DICE_FACES[game.lastDice[1]]}</span>
         </p>
       ) : null}
-      {body}
+      {busy ? null : body}
     </div>
   );
 }
@@ -546,12 +677,14 @@ function DeedChip({ t, game, pos, onClick }: { t: GameText; game: GameState; pos
 function Players({
   t,
   game,
+  cash,
   onManage,
   onTrade,
   onSelect,
 }: {
   t: GameText;
   game: GameState;
+  cash: CashFx[];
   onManage: (id: number) => void;
   onTrade: () => void;
   onSelect: (pos: number) => void;
@@ -575,8 +708,21 @@ function Players({
                 {pl.bankrupt ? ` · ${t.bankrupted}` : ""}
                 {pl.inJail ? " 🔒" : ""}
               </p>
-              <p className="text-sm font-bold" data-testid={`cash-${pl.id}`}>
+              <p className="relative text-sm font-bold" data-testid={`cash-${pl.id}`}>
                 {money(t, pl.cash)}
+                {cash
+                  .filter((c) => c.player === pl.id)
+                  .map((c) => (
+                    <span
+                      key={c.id}
+                      className={`game-float-up pointer-events-none absolute -top-1 right-0 whitespace-nowrap text-xs font-bold ${
+                        c.delta > 0 ? "text-[#1F9E55]" : "text-[#E2342D]"
+                      }`}
+                    >
+                      {c.delta > 0 ? "+" : "−"}
+                      {money(t, Math.abs(c.delta))}
+                    </span>
+                  ))}
               </p>
             </div>
             {pl.jailCards.length ? <p className="text-[11px]">🎫 {fmt(t.jailCards, { count: pl.jailCards.length })}</p> : null}

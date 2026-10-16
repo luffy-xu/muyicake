@@ -117,6 +117,8 @@ export type GameState = {
   lastDice: Dice | null;
   decks: Record<Deck, number[]>;
   log: LogEntry[];
+  // Total entries ever logged (the log itself is capped); lets the UI animate new entries.
+  logSeq?: number;
 };
 
 export type TradeOffer = {
@@ -195,6 +197,7 @@ export function createGame(players: { name: string; token: TokenId }[], rng: Rng
       chest: shuffle(CHEST_CARDS.map((_, i) => i), rng),
     },
     log: [],
+    logSeq: 0,
   };
 }
 
@@ -322,6 +325,7 @@ function clone(s: GameState): Draft {
 
 function log(s: Draft, entry: LogEntry) {
   s.log.push(entry);
+  s.logSeq = (s.logSeq ?? s.log.length - 1) + 1;
   if (s.log.length > MAX_LOG) s.log.splice(0, s.log.length - MAX_LOG);
 }
 
