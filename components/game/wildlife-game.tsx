@@ -13,6 +13,8 @@ import {
   SIDE_LENGTH,
   SKYSCRAPER_LEVEL,
   SPACE_ICONS,
+  STARTING_CASH,
+  STARTING_CASH_OPTIONS,
   TOKENS,
   TOKEN_ICONS,
   busDestinations,
@@ -37,7 +39,9 @@ import {
   rollDice,
   rollSpeed,
   skyscrapersInBank,
-  unownedDeeds,
+  highestRentCar,
+  rentFor,
+  unownedCars,
   unmortgageCost,
   validateTrade,
   type Action,
@@ -166,7 +170,7 @@ export function WildlifeGame({ locale, dictionary, room }: { locale: Locale; dic
       {game === undefined ? (
         <div className="aspect-square w-full max-w-[720px] animate-pulse rounded-xl bg-[#E9F2E4]" />
       ) : game === null ? (
-        <Setup t={t} onStart={(players) => setRoomState(room, createGame(players))} />
+        <Setup t={t} onStart={(players, cash) => setRoomState(room, createGame(players, Math.random, cash))} />
       ) : (
         <div className="lg:grid lg:grid-cols-[minmax(0,720px)_1fr] lg:gap-4">
           <Board t={t} game={game} positions={display ?? []} cells={fx.cells} onSelect={setDetail}>
@@ -319,8 +323,15 @@ function Confetti() {
 
 // ---------- setup ----------
 
-function Setup({ t, onStart }: { t: GameText; onStart: (players: { name: string; token: TokenId }[]) => void }) {
+function Setup({
+  t,
+  onStart,
+}: {
+  t: GameText;
+  onStart: (players: { name: string; token: TokenId }[], startingCash: number) => void;
+}) {
   const [count, setCount] = useState(2);
+  const [startingCash, setStartingCash] = useState(STARTING_CASH);
   const [names, setNames] = useState<string[]>(() => Array.from({ length: 6 }, () => ""));
   const [tokens, setTokens] = useState<TokenId[]>([...TOKENS]);
 
@@ -341,6 +352,21 @@ function Setup({ t, onStart }: { t: GameText; onStart: (players: { name: string;
           {[2, 3, 4, 5, 6].map((n) => (
             <option key={n} value={n}>
               {n}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="mb-3 flex items-center gap-3 text-sm">
+        {t.startingCash}
+        <select
+          className="rounded-lg border px-2 py-1"
+          value={startingCash}
+          onChange={(e) => setStartingCash(Number(e.target.value))}
+          data-testid="starting-cash"
+        >
+          {STARTING_CASH_OPTIONS.map((amount) => (
+            <option key={amount} value={amount}>
+              {money(t, amount)}
             </option>
           ))}
         </select>
@@ -382,6 +408,7 @@ function Setup({ t, onStart }: { t: GameText; onStart: (players: { name: string;
               name: names[i].trim() || fmt(t.playerDefault, { n: i + 1 }),
               token: tokens[i],
             })),
+            startingCash,
           )
         }
       >
@@ -697,13 +724,32 @@ function ActionPanel({
           <SpacePicker
             t={t}
             label={t.startAuction}
-            options={unownedDeeds(game)}
+            options={unownedCars(game)}
             testId="auction-pick"
             onPick={(pos) => dispatch({ type: "AUCTION_PICK", pos })}
           />
         </>
       );
       break;
+    case "auctionFallback": {
+      const target = highestRentCar(game, pl.id);
+      body = (
+        <>
+          <p className="text-xs">{t.auctionFallbackHint}</p>
+          <div className="flex flex-wrap justify-center gap-2">
+            {target !== null ? (
+              <Btn testId="auction-go" onClick={() => dispatch({ type: "AUCTION_FALLBACK", go: true })}>
+                {fmt(t.goHighestRent, { space: t.spaces[target], rent: rentFor(game, target, 0) })}
+              </Btn>
+            ) : null}
+            <Btn testId="auction-stay" tone="secondary" onClick={() => dispatch({ type: "AUCTION_FALLBACK", go: false })}>
+              {t.stayHere}
+            </Btn>
+          </div>
+        </>
+      );
+      break;
+    }
     case "birthday":
       body = (
         <>

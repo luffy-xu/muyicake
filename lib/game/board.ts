@@ -23,87 +23,126 @@ export type Space =
   | { kind: "busTicket" }
   | { kind: "birthday" };
 
-// The auto tower (skyscraper) rents for 1.5× the showroom, rounded to $5.
-const p = (
-  group: ColorGroup,
-  price: number,
-  houseCost: number,
-  rent: readonly [number, number, number, number, number, number],
-): Space => ({
+// Rent rows of the classic deeds, used as anchors: every car's rent is interpolated
+// from its price, so a pricier (better) car always earns more rent at every level.
+const RENT_ANCHORS: readonly (readonly [number, readonly [number, number, number, number, number, number]])[] = [
+  [60, [2, 10, 30, 90, 160, 250]],
+  [100, [6, 30, 90, 270, 400, 550]],
+  [120, [8, 40, 100, 300, 450, 600]],
+  [140, [10, 50, 150, 450, 625, 750]],
+  [160, [12, 60, 180, 500, 700, 900]],
+  [180, [14, 70, 200, 550, 750, 950]],
+  [200, [16, 80, 220, 600, 800, 1000]],
+  [220, [18, 90, 250, 700, 875, 1050]],
+  [240, [20, 100, 300, 750, 925, 1100]],
+  [260, [22, 110, 330, 800, 975, 1150]],
+  [280, [24, 120, 360, 850, 1025, 1200]],
+  [300, [26, 130, 390, 900, 1100, 1275]],
+  [320, [28, 150, 450, 1000, 1200, 1400]],
+  [350, [35, 175, 500, 1100, 1300, 1500]],
+  [400, [50, 200, 600, 1400, 1700, 2000]],
+];
+
+export function rentTableFor(price: number): RentTable {
+  const hi = RENT_ANCHORS.findIndex(([anchor]) => anchor >= price);
+  const [p1, r1] = RENT_ANCHORS[Math.max(0, hi - 1)];
+  const [p2, r2] = RENT_ANCHORS[Math.max(0, hi)];
+  const f = p2 === p1 ? 0 : (price - p1) / (p2 - p1);
+  const rent = r1.map((v, i) => {
+    const x = v + (r2[i] - v) * f;
+    return i === 0 ? Math.round(x) : Math.round(x / 5) * 5;
+  });
+  // The auto tower (skyscraper) rents for 1.5× the showroom, rounded to $5.
+  return [...rent, Math.round((rent[5] * 1.5) / 5) * 5] as unknown as RentTable;
+}
+
+const HOUSE_COST: Record<ColorGroup, number> = {
+  brown: 50,
+  lightBlue: 50,
+  pink: 100,
+  orange: 100,
+  red: 150,
+  yellow: 150,
+  green: 200,
+  darkBlue: 200,
+};
+
+const car = (group: ColorGroup, price: number): Space => ({
   kind: "property",
   group,
   price,
-  houseCost,
-  rent: [...rent, Math.round((rent[5] * 1.5) / 5) * 5] as unknown as RentTable,
+  houseCost: HOUSE_COST[group],
+  rent: rentTableFor(price),
 });
 
+// Cars get pricier around the board, from a mini car to an F1 car; every car has its own price.
 export const BOARD: readonly Space[] = [
   // Bottom side: GO → Jail
   { kind: "go" },
-  p("brown", 60, 50, [2, 10, 30, 90, 160, 250]),
+  car("brown", 60), // Mini Car
   { kind: "chest" },
-  p("brown", 60, 50, [4, 20, 60, 180, 320, 450]),
-  p("brown", 80, 50, [5, 30, 80, 240, 360, 500]),
+  car("brown", 70), // City Car
+  car("brown", 80), // Hatchback
   { kind: "tax", amount: 200 },
   { kind: "railroad", price: 200 },
-  p("lightBlue", 100, 50, [6, 30, 90, 270, 400, 550]),
-  p("lightBlue", 100, 50, [6, 30, 90, 270, 400, 550]),
+  car("lightBlue", 100), // Compact Sedan
+  car("lightBlue", 110), // Family Sedan
   { kind: "chance" },
   { kind: "utility", price: 150 },
-  p("lightBlue", 100, 50, [6, 30, 90, 270, 400, 550]),
-  p("lightBlue", 120, 50, [8, 40, 100, 300, 450, 600]),
+  car("lightBlue", 120), // Station Wagon
+  car("lightBlue", 130), // Crossover
   // Left side: Jail → Free Parking
   { kind: "jail" },
   { kind: "auction" },
-  p("pink", 140, 100, [10, 50, 150, 450, 625, 750]),
-  p("pink", 140, 100, [10, 50, 150, 450, 625, 750]),
+  car("pink", 140), // Minivan
+  car("pink", 150), // Pickup Truck
   { kind: "utility", price: 150 },
-  p("pink", 140, 100, [10, 50, 150, 450, 625, 750]),
-  p("pink", 160, 100, [12, 60, 180, 500, 700, 900]),
+  car("pink", 160), // SUV
+  car("pink", 170), // Camper Van
   { kind: "railroad", price: 200 },
-  p("orange", 180, 100, [14, 70, 200, 550, 750, 950]),
+  car("orange", 180), // Hybrid
   { kind: "chest" },
-  p("orange", 180, 100, [14, 70, 200, 550, 750, 950]),
-  p("orange", 200, 100, [16, 80, 220, 600, 800, 1000]),
-  p("orange", 200, 100, [16, 80, 220, 600, 800, 1000]),
+  car("orange", 190), // Electric Car
+  car("orange", 200), // Convertible
+  car("orange", 210), // Luxury Sedan
   // Top side: Free Parking → Go to Jail
   { kind: "freeParking" },
-  p("red", 220, 150, [18, 90, 250, 700, 875, 1050]),
+  car("red", 220), // Muscle Car
   { kind: "chance" },
-  p("red", 220, 150, [18, 90, 250, 700, 875, 1050]),
-  p("red", 240, 150, [20, 100, 300, 750, 925, 1100]),
-  p("red", 240, 150, [20, 100, 300, 750, 925, 1100]),
+  car("red", 230), // Drift Car
+  car("red", 240), // Rally Car
+  car("red", 250), // Classic Roadster
   { kind: "busTicket" },
   { kind: "railroad", price: 200 },
-  p("yellow", 260, 150, [22, 110, 330, 800, 975, 1150]),
-  p("yellow", 260, 150, [22, 110, 330, 800, 975, 1150]),
+  car("yellow", 260), // Sports Coupe
+  car("yellow", 270), // Grand Tourer
   { kind: "utility", price: 150 },
-  p("yellow", 280, 150, [24, 120, 360, 850, 1025, 1200]),
-  p("yellow", 280, 150, [24, 120, 360, 850, 1025, 1200]),
+  car("yellow", 280), // Track Car
+  car("yellow", 290), // Limousine
   // Right side: Go to Jail → GO
   { kind: "goToJail" },
-  p("green", 300, 200, [26, 130, 390, 900, 1100, 1275]),
-  p("green", 300, 200, [26, 130, 390, 900, 1100, 1275]),
-  p("green", 300, 200, [26, 130, 390, 900, 1100, 1275]),
+  car("green", 300), // Supercar
+  car("green", 310), // Concept Car
+  car("green", 320), // Land Speed Car
   { kind: "chest" },
-  p("green", 320, 200, [28, 150, 450, 1000, 1200, 1400]),
+  car("green", 330), // Le Mans Racer
   { kind: "railroad", price: 200 },
   { kind: "chance" },
   { kind: "birthday" },
-  p("darkBlue", 350, 200, [35, 175, 500, 1100, 1300, 1500]),
-  p("darkBlue", 350, 200, [35, 175, 500, 1100, 1300, 1500]),
+  car("darkBlue", 350), // Hypercar
+  car("darkBlue", 375), // Formula E Car
   { kind: "tax", amount: 100 },
-  p("darkBlue", 400, 200, [50, 200, 600, 1400, 1700, 2000]),
+  car("darkBlue", 400), // F1 Race Car
 ];
 
 export const BOARD_SIZE = BOARD.length;
 export const SIDE_LENGTH = BOARD_SIZE / 4;
 
 export const SPACE_ICONS: readonly string[] = [
-  "➡️", "🛺", "🔧", "🚗", "🚘", "💰", "🛣️", "🚙", "🚘", "🎲", "🔌", "🚗", "🚙",
-  "🔒", "🔨", "🚐", "🚐", "⛽", "🚙", "🛻", "🛣️", "🔋", "🔧", "🌱", "🚘", "☀️",
-  "🅿️", "🚗", "🎲", "🚘", "🚙", "🏎️", "🎫", "🛣️", "🏎️", "🏎️", "🧽", "🚘", "🏎️",
-  "👮", "🚘", "🏎️", "🚀", "🔧", "🏎️", "🛣️", "🎲", "🎁", "🚀", "🏎️", "💰", "🏆",
+  "➡️", "🛺", "🔧", "🚘", "🚗", "💰", "🛣️", "🚘", "🚗", "🎲", "🔌", "🚙", "🚙",
+  "🔒", "🔨", "🚐", "🛻", "⛽", "🚙", "🚐", "🛣️", "🌱", "🔧", "🔋", "🚘", "🚘",
+  "🅿️", "🚗", "🎲", "🚗", "🚙", "🚘", "🎫", "🛣️", "🏎️", "🏎️", "🧽", "🏎️", "🚘",
+  "👮", "🏎️", "🚀", "🚀", "🔧", "🏎️", "🛣️", "🎲", "🎁", "🏎️", "⚡", "💰", "🏆",
 ];
 
 export const GROUP_COLORS: Record<ColorGroup, string> = {
@@ -134,6 +173,8 @@ export const PLAYER_COLORS = ["#E2342D", "#1E4FA1", "#1F9E55", "#F39A1E", "#8E44
 export const JAIL_POS = 13;
 export const GO_SALARY = 200;
 export const JAIL_FINE = 50;
+// Players pick the starting money at setup; $2500 (the Mega Edition amount) is the maximum.
+export const STARTING_CASH_OPTIONS: readonly number[] = [1000, 1500, 2000, 2500];
 export const STARTING_CASH = 2500;
 export const BIRTHDAY_GIFT = 100;
 export const DEPOT_COST = 100;
@@ -199,7 +240,7 @@ export const CHANCE_CARDS: readonly CardEffect[] = [
   { kind: "advance", to: 0 },
   { kind: "advance", to: 51 },
   { kind: "advance", to: 30 },
-  { kind: "advance", to: 16 },
+  { kind: "advance", to: 15 },
   { kind: "nearestRailroad" },
   { kind: "nearestRailroad" },
   { kind: "nearestUtility" },

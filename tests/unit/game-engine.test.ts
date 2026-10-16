@@ -49,6 +49,16 @@ describe("board", () => {
     expect(CHANCE_CARDS).toHaveLength(16);
     expect(CHEST_CARDS).toHaveLength(16);
   });
+
+  it("makes every car pricier, with higher rent at every level, than the car before it", () => {
+    const cars = BOARD.flatMap((s) => (s.kind === "property" ? [s] : []));
+    for (let i = 1; i < cars.length; i++) {
+      expect(cars[i].price).toBeGreaterThan(cars[i - 1].price);
+      cars[i].rent.forEach((rent, level) => expect(rent).toBeGreaterThan(cars[i - 1].rent[level]));
+    }
+    expect(cars[0]).toMatchObject({ price: 60, rent: [2, 10, 30, 90, 160, 250, 375] });
+    expect(cars.at(-1)).toMatchObject({ price: 400, rent: [50, 200, 600, 1400, 1700, 2000, 3000] });
+  });
 });
 
 describe("movement", () => {
@@ -57,13 +67,24 @@ describe("movement", () => {
     expect(s.players.every((p) => p.cash === 2500 && p.pos === 0)).toBe(true);
   });
 
+  it("lets players choose $1000, $1500, $2000 or $2500 starting money", () => {
+    const players = [
+      { name: "A", token: "raceCar" as const },
+      { name: "B", token: "taxi" as const },
+    ];
+    for (const cash of [1000, 1500, 2000, 2500]) {
+      expect(createGame(players, () => 0.5, cash).players.every((p) => p.cash === cash)).toBe(true);
+    }
+    expect(createGame(players, () => 0.5, 5000).players[0].cash).toBe(2500);
+  });
+
   it("moves, offers purchase and buys", () => {
     let s = run(newGame(), { type: "ROLL", dice: [1, 2] });
     expect(s.players[0].pos).toBe(3);
     expect(s.phase).toEqual({ t: "buy", pos: 3 });
     s = run(s, { type: "BUY" });
     expect(s.deeds[3].owner).toBe(0);
-    expect(s.players[0].cash).toBe(2440);
+    expect(s.players[0].cash).toBe(2430);
     expect(s.phase.t).toBe("postRoll");
     s = run(s, { type: "END_TURN" });
     expect(s.current).toBe(1);
@@ -247,7 +268,7 @@ describe("speed die", () => {
     expect(s.phase.t).toBe("turbo");
     s = run(s, { type: "TURBO" });
     expect(s.players[0].pos).toBe(11);
-    expect(s.players[0].cash).toBe(2494);
+    expect(s.players[0].cash).toBe(2492);
   });
 
   it("Bus lets the player move by either die or the total", () => {
@@ -268,15 +289,32 @@ describe("speed die", () => {
 });
 
 describe("Mega spaces", () => {
-  it("Car Auction lets the player auction any unowned car", () => {
+  it("Car Auction lets the player auction any unowned car (not expressways or utilities)", () => {
     const s0 = newGame();
     s0.players[0].pos = 11;
     let s = run(s0, { type: "ROLL", dice: [1, 2] });
     expect(s.phase.t).toBe("auctionPick");
     expect(run(s, { type: "AUCTION_PICK", pos: 14 })).toBe(s);
+    expect(run(s, { type: "AUCTION_PICK", pos: 6 })).toBe(s);
     s = run(s, { type: "AUCTION_PICK", pos: 51 }, { type: "BID", amount: 10 }, { type: "PASS_BID" }, { type: "PASS_BID" });
     expect(s.deeds[51].owner).toBe(0);
     expect(s.phase.t).toBe("postRoll");
+  });
+
+  it("with no unowned cars, Car Auction offers the highest-rent car or staying put", () => {
+    const s0 = newGame();
+    for (const pos of Object.keys(s0.deeds).map(Number)) if (BOARD[pos].kind === "property") s0.deeds[pos].owner = 0;
+    give(s0, 1, 19, 51);
+    s0.players[0].pos = 11;
+    s0.deeds[6].owner = null;
+    let s = run(s0, { type: "ROLL", dice: [1, 2] });
+    expect(s.phase.t).toBe("auctionFallback");
+    const stay = run(s, { type: "AUCTION_FALLBACK", go: false });
+    expect(stay.players[0].pos).toBe(14);
+    expect(stay.phase.t).toBe("postRoll");
+    s = run(s, { type: "AUCTION_FALLBACK", go: true });
+    expect(s.players[0].pos).toBe(51);
+    expect(s.players[0].cash).toBe(2450);
   });
 
   it("Birthday Gift pays $100 or gives a bus ticket", () => {

@@ -24,6 +24,7 @@ import {
   SKYSCRAPER_LEVEL,
   SPEED_FACES,
   STARTING_CASH,
+  STARTING_CASH_OPTIONS,
   TOTAL_HOTELS,
   TOTAL_HOUSES,
   TOTAL_SKYSCRAPERS,
@@ -82,6 +83,7 @@ export type Phase =
   | { t: "busMove" }
   | { t: "pickSpace" }
   | { t: "auctionPick" }
+  | { t: "auctionFallback" }
   | { t: "birthday" }
   | { t: "over"; winner: number };
 
@@ -176,6 +178,7 @@ export type Action =
   | { type: "BUS_MOVE"; steps: number }
   | { type: "PICK_SPACE"; pos: number }
   | { type: "AUCTION_PICK"; pos: number }
+  | { type: "AUCTION_FALLBACK"; go: boolean }
   | { type: "BIRTHDAY"; choice: "cash" | "bus" }
   | { type: "USE_BUS"; pos: number; dice: Dice }
   | { type: "BUILD_DEPOT"; player: number; pos: number }
@@ -217,7 +220,12 @@ export function rollSpeed(rng: Rng = Math.random): Speed {
   return SPEED_FACES[Math.floor(rng() * SPEED_FACES.length)];
 }
 
-export function createGame(players: { name: string; token: TokenId }[], rng: Rng = Math.random): GameState {
+export function createGame(
+  players: { name: string; token: TokenId }[],
+  rng: Rng = Math.random,
+  startingCash: number = STARTING_CASH,
+): GameState {
+  const cash = STARTING_CASH_OPTIONS.includes(startingCash) ? startingCash : STARTING_CASH;
   const deeds: Record<number, Deed> = {};
   BOARD.forEach((_, i) => {
     if (isOwnable(i)) deeds[i] = { owner: null, houses: 0, mortgaged: false };
@@ -228,7 +236,7 @@ export function createGame(players: { name: string; token: TokenId }[], rng: Rng
       id,
       name: pl.name,
       token: pl.token,
-      cash: STARTING_CASH,
+      cash,
       pos: 0,
       inJail: false,
       jailTurns: 0,
@@ -367,10 +375,23 @@ function sellLevel(s: GameState, level: number) {
   return level - 1;
 }
 
-export function unownedDeeds(s: GameState) {
+// Car properties (not expressways or utilities) still owned by the bank.
+export function unownedCars(s: GameState) {
   return Object.keys(s.deeds)
     .map(Number)
-    .filter((pos) => s.deeds[pos].owner === null);
+    .filter((pos) => BOARD[pos].kind === "property" && s.deeds[pos].owner === null);
+}
+
+// The car with the highest rent the player would owe someone else (the Car Auction fallback).
+export function highestRentCar(s: GameState, player: number) {
+  let best: number | null = null;
+  for (const key of Object.keys(s.deeds)) {
+    const pos = Number(key);
+    const owner = s.deeds[pos].owner;
+    if (BOARD[pos].kind !== "property" || owner === null || owner === player) continue;
+    if (rentFor(s, pos, 0) > 0 && (best === null || rentFor(s, pos, 0) > rentFor(s, best, 0))) best = pos;
+  }
+  return best;
 }
 
 export function canSellHouse(s: GameState, player: number, pos: number) {
@@ -509,23 +530,10 @@ function land(s: Draft, diceTotal: number, mode: "normal" | "card" = "normal", c
     case "goToJail":
       sendToJail(s, player);
       break;
-    case "auction": {
-      if (unownedDeeds(s).length) {
-        s.phase = { t: "auctionPick" };
-        return;
-      }
-      // Everything is owned: advance to the car with the highest rent owed to someone else.
-      const target = Object.keys(s.deeds)
-        .map(Number)
-        .filter((p) => s.deeds[p].owner !== player)
-        .sort((a, b) => rentFor(s, b, diceTotal) - rentFor(s, a, diceTotal))[0];
-      if (target !== undefined && rentFor(s, target, diceTotal) > 0) {
-        moveTo(s, player, target, true);
-        land(s, diceTotal);
-        return;
-      }
-      break;
-    }
+    case "auction":
+      // Auction an unowned car; with none left, the player may instead go to the highest-rent car.
+      s.phase = { t: unownedCars(s).length ? "auctionPick" : "auctionFallback" };
+      return;
     case "busTicket":
       drawBusTicket(s, player);
       break;
@@ -888,8 +896,19 @@ export function reduce(state: GameState, action: Action): GameState {
       break;
     }
     case "AUCTION_PICK": {
-      if (ph.t !== "auctionPick" || s.deeds[action.pos]?.owner !== null) return state;
+      if (ph.t !== "auctionPick" || !unownedCars(s).includes(action.pos)) return state;
       startAuction(s, [action.pos], afterTurnPhase(s));
+      break;
+    }
+    case "AUCTION_FALLBACK": {
+      if (ph.t !== "auctionFallback") return state;
+      const target = action.go ? highestRentCar(s, pl.id) : null;
+      if (target === null) {
+        s.phase = afterTurnPhase(s);
+        break;
+      }
+      moveTo(s, pl.id, target, true);
+      land(s, s.lastDice ? s.lastDice[0] + s.lastDice[1] : 0);
       break;
     }
     case "BIRTHDAY": {

@@ -43,6 +43,7 @@ const basePhase = z.discriminatedUnion("t", [
   z.object({ t: z.literal("busMove") }),
   z.object({ t: z.literal("pickSpace") }),
   z.object({ t: z.literal("auctionPick") }),
+  z.object({ t: z.literal("auctionFallback") }),
   z.object({ t: z.literal("birthday") }),
 ]);
 
